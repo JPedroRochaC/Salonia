@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Seu Painel — Salonia</title>
+    <link rel="stylesheet" href="/admin/style.css" />
+    <link rel="stylesheet" href="/admin/responsividade.css" />
+  </head>
+  <body>
+    <!-- TELA DE LOGIN -->
+    <div id="loginScreen" class="login-screen">
+      <form id="loginForm" class="login-card">
+        <h1>Painel do salão</h1>
+        <p class="login-sub">Entre com o email e senha cadastrados.</p>
+
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" class="input" required autocomplete="username" />
+
+        <label for="loginSenha">Senha</label>
+        <input type="password" id="loginSenha" class="input" required autocomplete="current-password" />
+
+        <p id="loginErro" class="erro-envio" hidden></p>
+
+        <button type="submit" class="btn btn-primary btn-full" id="btnLogin">Entrar</button>
+      </form>
+    </div>
+
+    <!-- PAINEL (após login) -->
+    <div id="painel" class="painel" hidden>
+      <aside class="sidebar">
+        <div class="sidebar-topo">
+          <img id="sidebarLogo" class="sidebar-logo" src="" alt="" hidden />
+          <div>
+            <strong id="sidebarNomeSalao">—</strong>
+            <span class="sidebar-plano" id="sidebarPlano"></span>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <button class="nav-item active" data-aba="dashboard">Dashboard</button>
+          <button class="nav-item" data-aba="personalizacao">Personalização</button>
+          <button class="nav-item" data-aba="servicos">Serviços &amp; Profissionais</button>
+          <button class="nav-item" data-aba="agendamentos">Agendamentos</button>
+          <button class="nav-item" data-aba="portfolio">Portfólio</button>
+          <button class="nav-item" data-aba="faq">Perguntas frequentes</button>
+          <button class="nav-item nav-item-bloqueado" data-aba="iara">
+            Iara <span class="badge-em-breve">em breve</span>
+          </button>
+        </nav>
+
+        <button id="btnLogout" class="sidebar-logout">Sair</button>
+      </aside>
+
+      <main class="conteudo">
+        <!-- ABA: DASHBOARD -->
+        <section class="aba" data-aba-conteudo="dashboard">
+          <h2>Dashboard</h2>
+          <p class="conteudo-sub">Resumo do mês atual.</p>
+
+          <div class="cards-grid" id="dashboardCards">
+            <div class="card-stat">
+              <span>Faturamento do mês</span>
+              <strong id="statFaturamento">—</strong>
+            </div>
+            <div class="card-stat">
+              <span>Agendamentos confirmados</span>
+              <strong id="statConfirmados">—</strong>
+            </div>
+            <div class="card-stat">
+              <span>Total de agendamentos</span>
+              <strong id="statTotal">—</strong>
+            </div>
+            <div class="card-stat">
+              <span>Ticket médio</span>
+              <strong id="statTicket">—</strong>
+            </div>
+          </div>
+
+          <h3 class="secao-titulo">Próximos agendamentos</h3>
+          <div id="proximosLista" class="lista-proximos"></div>
+          <p id="proximosVazio" class="menu-vazio" hidden>Nenhum agendamento futuro por enquanto.</p>
+        </section>
+
+        <!-- ABA: PERSONALIZAÇÃO -->
+        <section class="aba" data-aba-conteudo="personalizacao" hidden>
+          <h2>Personalização</h2>
+          <p class="conteudo-sub">Como seu salão aparece pros clientes na página de agendamento.</p>
+
+          <form id="formPersonalizacao" class="form-config">
+            <fieldset>
+              <legend>Dados básicos</legend>
+
+              <label for="campoNome">Nome do salão</label>
+              <input type="text" id="campoNome" class="input" />
+
+              <label for="campoTelefone">Telefone / WhatsApp</label>
+              <input type="text" id="campoTelefone" class="input" />
+
+              <label for="campoEndereco">Endereço</label>
+              <input type="text" id="campoEndereco" class="input" />
+
+              <label for="campoLogoArquivo">Logo</label>
+              <div class="logo-upload-linha">
+                <img id="previewLogo" class="preview-logo" src="" alt="" hidden />
+                <div>
+                  <label for="campoLogoArquivo" class="btn btn-outline btn-upload">
+                    Escolher imagem
+                  </label>
+                  <input type="file" id="campoLogoArquivo" accept="image/*" hidden />
+                  <p id="logoStatus" class="logo-status"></p>
+                </div>
+              </div>
+              <input type="hidden" id="campoLogoUrl" />
+            </fieldset>
+
+            <fieldset>
+              <legend>Cores</legend>
+              <p class="fieldset-nota">
+                Essas são as mesmas cores que aparecem na página de agendamento
+                dos seus clientes — e já mudam aqui no painel também, pra você
+                ver como fica.
+              </p>
+              <div class="cores-linha">
+                <div>
+                  <label for="campoCorDestaque">Cor de destaque</label>
+                  <input type="color" id="campoCorDestaque" class="input-cor" />
+                </div>
+                <div>
+                  <label for="campoCorFundo">Cor de fundo</label>
+                  <input type="color" id="campoCorFundo" class="input-cor" />
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Redes sociais</legend>
+              <label for="campoInstagram">Instagram</label>
+              <input type="text" id="campoInstagram" class="input" placeholder="@seusalao" />
+              <label for="campoWhatsapp">WhatsApp (link ou número)</label>
+              <input type="text" id="campoWhatsappRedes" class="input" placeholder="5585999999999" />
+            </fieldset>
+
+            <fieldset>
+              <legend>Horário de funcionamento</legend>
+              <p class="fieldset-nota">
+                Marque os dias que o salão abre e defina o horário de cada um
+                — se algum dia fechar mais cedo ou mais tarde, é só ajustar
+                só aquele dia.
+              </p>
+              <div id="tabelaHorarios" class="tabela-horarios"></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Pagamento antecipado</legend>
+              <label class="checkbox-linha">
+                <input type="checkbox" id="campoExigeSinal" />
+                Exigir pagamento antecipado (sinal) pra confirmar agendamento
+              </label>
+
+              <div id="blocoSinal">
+                <label for="campoValorSinal">Valor do sinal (R$, deixe vazio pra usar o preço total do serviço)</label>
+                <input type="number" id="campoValorSinal" class="input" step="0.01" min="0" />
+
+                <label for="campoChavePix">Chave Pix</label>
+                <input type="text" id="campoChavePix" class="input" />
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Disponibilidade</legend>
+              <label class="checkbox-linha">
+                <input type="checkbox" id="campoAtivo" />
+                Agendamentos online abertos (desmarque pra pausar temporariamente)
+              </label>
+            </fieldset>
+
+            <p id="personalizacaoErro" class="erro-envio" hidden></p>
+            <p id="personalizacaoSucesso" class="sucesso-envio" hidden>Salvo com sucesso.</p>
+
+            <button type="submit" class="btn btn-primary btn-full" id="btnSalvarPersonalizacao">
+              Salvar alterações
+            </button>
+          </form>
+        </section>
+
+        <!-- ABAS AINDA NÃO IMPLEMENTADAS -->
+        <section class="aba" data-aba-conteudo="servicos" hidden>
+          <h2>Serviços &amp; Profissionais</h2>
+          <p class="conteudo-sub">Em construção — próxima etapa do painel.</p>
+        </section>
+
+        <section class="aba" data-aba-conteudo="agendamentos" hidden>
+          <h2>Agendamentos</h2>
+          <p class="conteudo-sub">Veja e gerencie os agendamentos recebidos.</p>
+
+          <div class="agendamentos-filtros">
+            <div>
+              <label for="filtroData">Data</label>
+              <input type="date" id="filtroData" class="input" />
+            </div>
+            <div>
+              <label for="filtroStatus">Status</label>
+              <select id="filtroStatus" class="input">
+                <option value="">Todos</option>
+                <option value="aguardando_pagamento">Aguardando pagamento</option>
+                <option value="aguardando_confirmacao">Aguardando confirmação</option>
+                <option value="confirmado">Confirmado</option>
+                <option value="concluido">Concluído</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="listaAgendamentos" class="lista-agendamentos"></div>
+          <p id="agendamentosVazio" class="menu-vazio" hidden>Nenhum agendamento nesse dia.</p>
+        </section>
+
+        <section class="aba" data-aba-conteudo="portfolio" hidden>
+          <h2>Portfólio</h2>
+          <p class="conteudo-sub">Em construção — próxima etapa do painel.</p>
+        </section>
+
+        <!-- ABA: PERGUNTAS FREQUENTES (Iara) -->
+        <section class="aba" data-aba-conteudo="faq" hidden>
+          <h2>Perguntas frequentes</h2>
+          <p class="conteudo-sub">
+            Aparecem no assistente "Iara" da página de agendamento, pra
+            responder dúvidas rápidas dos clientes sem precisar chamar no
+            WhatsApp.
+          </p>
+
+          <form id="formFaq" class="form-config faq-form">
+            <input type="hidden" id="faqEditandoId" />
+            <label for="faqPergunta">Pergunta</label>
+            <input type="text" id="faqPergunta" class="input" placeholder="Ex: Vocês atendem aos domingos?" required />
+
+            <label for="faqResposta">Resposta</label>
+            <textarea id="faqResposta" class="input" rows="3" placeholder="Ex: Não, funcionamos de terça a sábado." required></textarea>
+
+            <p id="faqErro" class="erro-envio" hidden></p>
+
+            <div class="faq-form-botoes">
+              <button type="submit" class="btn btn-primary" id="btnSalvarFaq">Adicionar pergunta</button>
+              <button type="button" class="btn btn-outline" id="btnCancelarEdicaoFaq" hidden>Cancelar edição</button>
+            </div>
+          </form>
+
+          <div id="listaFaq" class="lista-faq"></div>
+          <p id="faqVazio" class="menu-vazio" hidden>Nenhuma pergunta cadastrada ainda.</p>
+        </section>
+
+        <section class="aba" data-aba-conteudo="iara" hidden>
+          <h2>Iara — atendente no WhatsApp</h2>
+          <p class="conteudo-sub">
+            Disponível em breve como um pacote adicional. Quando for lançado,
+            a configuração dela vai aparecer aqui.
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <script src="/admin/script.js" defer></script>
+  </body>
+</html>

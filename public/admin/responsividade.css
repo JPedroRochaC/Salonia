@@ -1,0 +1,175 @@
+/* ============================================================
+   RESPONSIVIDADE — painel admin
+   Carregar DEPOIS do style.css (esse aqui só ajusta/sobrescreve).
+   ============================================================ */
+
+html, body {
+  overflow-x: hidden;
+}
+
+/* ===== TABLET / NOTEBOOK PEQUENO (até 880px) ===== */
+@media (max-width: 880px) {
+  .conteudo {
+    padding: 28px 24px;
+    max-width: 100%;
+  }
+}
+
+/* ===== CELULAR (até 640px) ===== */
+@media (max-width: 640px) {
+  /* menu lateral vira barra de cima, com os itens em fileira rolável */
+  .painel {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar-topo {
+    flex-shrink: 0;
+    border-bottom: none;
+    padding: 0 10px 0 0;
+    margin-bottom: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-topo strong {
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    flex: none;
+    gap: 4px;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .nav-item-bloqueado .badge-em-breve {
+    display: none; /* economiza espaço na barra horizontal */
+  }
+
+  .sidebar-logout {
+    flex-shrink: 0;
+    margin-top: 0;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  /* conteúdo */
+  .conteudo {
+    padding: 20px 16px;
+  }
+
+  .conteudo h2 {
+    font-size: 1.2rem;
+  }
+
+  /* cards do dashboard: 2 por linha em vez de espremer 4 */
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .card-stat {
+    padding: 14px;
+  }
+
+  .card-stat strong {
+    font-size: 1.15rem;
+  }
+
+  .proximo-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  /* formulário de personalização ocupa a largura toda */
+  .form-config {
+    max-width: 100%;
+  }
+
+  .cores-linha,
+  .horas-linha {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .logo-upload-linha {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* tabela de horário por dia: empilha em vez de 3 colunas apertadas */
+  .linha-horario-dia {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .linha-horario-dia input[type="time"] {
+    width: 100%;
+  }
+
+  /* FAQ: texto e botões empilhados */
+  .faq-item {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .faq-item-acoes {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .faq-item-acoes button {
+    text-align: left;
+  }
+
+  .faq-form-botoes {
+    flex-direction: column;
+  }
+
+  .faq-form-botoes .btn {
+    width: 100%;
+  }
+
+  /* login */
+  .login-screen {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 26px 20px;
+  }
+}
+
+/* ===== CELULAR PEQUENO (até 380px) ===== */
+@media (max-width: 380px) {
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-topo strong {
+    font-size: 0.76rem;
+  }
+
+  .nav-item {
+    padding: 7px 9px;
+    font-size: 0.78rem;
+  }
+}
