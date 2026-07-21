@@ -665,6 +665,37 @@ function validarDados() {
   irParaPasso(4);
 }
 
+// ============================================================
+// CONFIRMAÇÃO VIA WHATSAPP
+// ============================================================
+// Redireciona o navegador do cliente direto pro WhatsApp do salão,
+// já com a mensagem de confirmação pronta. Retorna true se conseguiu
+// redirecionar (número do salão configurado); false se não tinha
+// número — nesse caso quem chamou deve mostrar a tela final normal.
+function irParaWhatsapp() {
+  const { salao, servico, profissional, horario, nomeCliente } = estado;
+
+  const numero = String(salao?.redes_sociais?.whatsapp || "").replace(/\D/g, "");
+  if (!numero || !horario) return false;
+
+  const dataTexto = horario.toLocaleDateString("pt-BR");
+  const horaTexto = horario.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const mensagem =
+    `Olá! Gostaria de confirmar meu agendamento:\n\n` +
+    `Nome: ${nomeCliente}\n` +
+    `Serviço: ${servico?.nome || ""}\n` +
+    `Profissional: ${profissional?.nome || ""}\n` +
+    `Data: ${dataTexto}\n` +
+    `Horário: ${horaTexto}`;
+
+  window.location.href = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+  return true;
+}
+
 async function confirmarAgendamento() {
   const btn = el("btnConfirmar");
   btn.disabled = true;
@@ -718,7 +749,7 @@ async function confirmarAgendamento() {
     if (salao.exige_sinal) {
       prepararTelaPagamento();
       irParaPasso("pagamento");
-    } else {
+    } else if (!irParaWhatsapp()) {
       el("mensagemFinal").textContent =
         `${salao.nome} vai confirmar seu horário em breve pelo WhatsApp.`;
       el("voltarInicioBtn").href = `/${slug}`;
@@ -846,17 +877,21 @@ async function enviarComprovante() {
     return;
   }
 
-  el("mensagemFinal").textContent =
-    `Recebemos seu comprovante! ${estado.salao.nome} vai confirmar seu horário em breve.`;
-  el("voltarInicioBtn").href = `/${slug}`;
-  irParaPasso("concluido");
+  if (!irParaWhatsapp()) {
+    el("mensagemFinal").textContent =
+      `Recebemos seu comprovante! ${estado.salao.nome} vai confirmar seu horário em breve.`;
+    el("voltarInicioBtn").href = `/${slug}`;
+    irParaPasso("concluido");
+  }
 }
 
 function pularComprovante() {
-  el("mensagemFinal").textContent =
-    `${estado.salao.nome} vai confirmar seu horário após o pagamento antecipado. Você pode enviar o comprovante depois pelo WhatsApp.`;
-  el("voltarInicioBtn").href = `/${slug}`;
-  irParaPasso("concluido");
+  if (!irParaWhatsapp()) {
+    el("mensagemFinal").textContent =
+      `${estado.salao.nome} vai confirmar seu horário após o pagamento antecipado. Você pode enviar o comprovante depois pelo WhatsApp.`;
+    el("voltarInicioBtn").href = `/${slug}`;
+    irParaPasso("concluido");
+  }
 }
 
 // ============================================================
@@ -865,21 +900,39 @@ function pularComprovante() {
 function configurarIara() {
   const widget = el("iaraWidget");
   const painel = el("iaraPanel");
+  const tooltip = el("iaraTooltip");
   widget.hidden = false;
+
+  const sumirTooltip = () => {
+    if (tooltip) tooltip.hidden = true;
+  };
+  const mostrarTooltip = () => {
+    if (tooltip) tooltip.hidden = false;
+    setTimeout(sumirTooltip, 5000);
+  };
+
+  // some sozinho depois de 5s na primeira vez, pra não ficar poluindo a tela
+  setTimeout(sumirTooltip, 5000);
 
   let carregado = false;
 
   el("iaraFab").addEventListener("click", async () => {
+    sumirTooltip();
     const abrindo = painel.hidden;
     painel.hidden = !abrindo;
     if (abrindo && !carregado) {
       carregado = true;
       await carregarPerguntasIara();
     }
+    if (!abrindo) {
+      // fechou clicando de novo no fab: tooltip volta depois de um tempinho
+      setTimeout(mostrarTooltip, 1500);
+    }
   });
 
   el("iaraCloseBtn").addEventListener("click", () => {
     painel.hidden = true;
+    setTimeout(mostrarTooltip, 1500);
   });
 }
 

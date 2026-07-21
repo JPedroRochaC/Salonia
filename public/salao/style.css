@@ -80,12 +80,12 @@ h3 {
     background 0.15s ease;
 }
 .btn-primary {
-  background: var(--accent);
+  background: var(--brown);
   color: #fff;
   box-shadow: var(--shadow-md);
 }
 .btn-primary:hover {
-  background: var(--accent-hover);
+  background: var(--brown-soft);
   transform: translateY(-2px);
 }
 .btn-primary:disabled {
@@ -113,7 +113,7 @@ h3 {
   justify-content: space-between;
   gap: 14px;
   padding: 14px 20px;
-  background: var(--accent);
+  background: var(--brown);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   position: sticky;
   top: 0;
@@ -373,9 +373,9 @@ h3 {
 }
 .option-card.selected {
   animation: preencherSelecao 0.3s ease;
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent);
+  background: var(--brown);
+  border-color: var(--brown);
+  box-shadow: 0 0 0 2px var(--brown);
   color: #fff;
 }
 .option-card.selected span {
@@ -401,7 +401,7 @@ h3 {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--brown);
   color: #fff;
   display: flex;
   align-items: center;
@@ -468,9 +468,9 @@ h3 {
 }
 .slot-btn.selected {
   animation: preencherSelecao 0.3s ease;
-  background: var(--accent);
+  background: var(--brown);
   color: #fff;
-  border-color: var(--accent);
+  border-color: var(--brown);
 }
 
 .resumo-card {
@@ -837,6 +837,44 @@ h3 {
 .iara-widget-answer {
   font-size: 0.85rem;
   color: var(--brown-soft);
+}
+
+.iara-tooltip {
+  position: absolute;
+  bottom: 68px;
+  right: 0;
+  background: #fff;
+  color: var(--brown-soft, #333);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm, 8px);
+  box-shadow: var(--shadow-md);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: iara-tooltip-fade 0.3s ease;
+}
+
+.iara-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  right: 20px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  transform: rotate(45deg);
+}
+
+@keyframes iara-tooltip-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ===== RESPONSIVIDADE MOBILE ===== */
