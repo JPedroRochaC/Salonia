@@ -28,12 +28,6 @@ const estado = {
 // ============================================================
 const el = (id) => document.getElementById(id);
 
-// Converte Date local pra ISO sem converter pra UTC (evita bug de fuso horário)
-function dataLocalParaISO(date) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
-}
-
 // Cria elemento com textContent seguro (evita XSS)
 function criarEl(tag, classes, texto) {
   const elemento = document.createElement(tag);
@@ -249,7 +243,6 @@ async function montarPaginaPortfolio() {
   el("portfolioTitulo").textContent = `Portfólio — ${salao.nome}`;
   el("portfolioVoltarBtn").href = `/${slug}`;
   el("portfolioAgendarBtn").href = `/${slug}/agendar`;
-  el("portfolioAgendarBtnTop").href = `/${slug}/agendar`;
 
   if (salao.logo_url) {
     el("portfolioLogo").src = salao.logo_url;
@@ -592,8 +585,8 @@ async function carregarHorarios() {
     .from("agenda_publica")
     .select("data_hora")
     .eq("profissional_id", profissional.id)
-    .gte("data_hora", dataLocalParaISO(inicioDia))
-    .lte("data_hora", dataLocalParaISO(fimDia));
+    .gte("data_hora", inicioDia.toISOString())
+    .lte("data_hora", fimDia.toISOString());
 
   container.innerHTML = "";
 
@@ -606,7 +599,11 @@ async function carregarHorarios() {
   }
 
   const horariosOcupados = new Set(
-    (ocupados || []).map((o) => o.data_hora.substring(11, 16))
+    (ocupados || []).map((o) => {
+      const d = new Date(o.data_hora);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    })
   );
 
   const livres = [...horariosDoDia]
@@ -693,7 +690,7 @@ async function confirmarAgendamento() {
         telefone: telefoneCliente.replace(/\D/g, ""),
         profissional_id: profissional.id,
         servico_id: servico.id,
-        data_hora: dataLocalParaISO(horario),
+        data_hora: horario.toISOString(),
         duracao_minutos: servico.duracao_minutos,
         valor: servico.preco,
         status: salao.exige_sinal
