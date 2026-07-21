@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Seu Painel — Salonia</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/admin/manifest.json" />
+    <meta name="theme-color" content="#28180c" />
+    <link rel="icon" href="/admin/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/admin/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Salonia" />
+
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
@@ -273,12 +283,15 @@
           </div>
 
           <div class="sub-aba" data-sub-aba-conteudo="verAgendamentosSub">
-            <div class="agendamentos-filtros">
-              <div>
-                <label for="filtroData">Data</label>
-                <input type="date" id="filtroData" class="input" />
+            <div class="calendario-toolbar">
+              <div class="calendario-nav">
+                <button type="button" id="btnSemanaAnterior" class="btn-calendario-seta" aria-label="Semana anterior">‹</button>
+                <button type="button" id="btnSemanaHoje" class="btn btn-outline btn-calendario-hoje">Hoje</button>
+                <button type="button" id="btnSemanaProxima" class="btn-calendario-seta" aria-label="Próxima semana">›</button>
+                <strong id="calendarioRotuloSemana" class="calendario-rotulo">—</strong>
               </div>
-              <div>
+
+              <div class="calendario-filtro-status">
                 <label for="filtroStatus">Status</label>
                 <select id="filtroStatus" class="input">
                   <option value="">Todos</option>
@@ -291,8 +304,12 @@
               </div>
             </div>
 
-            <div id="listaAgendamentos" class="lista-agendamentos"></div>
-            <p id="agendamentosVazio" class="menu-vazio" hidden>Nenhum agendamento nesse dia.</p>
+            <div id="calendarioDiasMobile" class="calendario-dias-mobile"></div>
+
+            <div class="calendario-semana-wrap">
+              <div id="calendarioSemana" class="calendario-semana"></div>
+            </div>
+            <p id="agendamentosVazio" class="menu-vazio" hidden>Nenhum agendamento nessa semana.</p>
           </div>
 
           <div class="sub-aba" data-sub-aba-conteudo="horariosDisponiveisSub" hidden>
@@ -361,6 +378,14 @@
             a configuração dela vai aparecer aqui.
           </p>
         </section>
+
+        <!-- Painel de detalhe do agendamento — abre ao clicar num evento do calendário -->
+        <div id="agendamentoPopoverOverlay" class="agendamento-popover-overlay" hidden>
+          <div class="agendamento-popover" role="dialog" aria-modal="true" aria-labelledby="agendamentoPopoverTitulo">
+            <button type="button" id="btnFecharAgendamentoPopover" class="sidebar-close" aria-label="Fechar">×</button>
+            <div id="agendamentoPopoverCorpo"></div>
+          </div>
+        </div>
       </main>
     </div>
 

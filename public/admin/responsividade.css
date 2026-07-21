@@ -125,6 +125,70 @@ html, body { overflow-x: hidden; }
   /* Login */
   .login-screen { padding: 18px; }
   .login-card { padding: 30px 24px; border-radius: 20px; }
+
+  /* Calendário de agendamentos */
+  .calendario-toolbar { gap: 12px; }
+  .calendario-filtro-status .input { min-width: 0; width: 100%; }
+  .calendario-semana { min-width: 0; width: 100%; }
+  .calendario-semana { --cal-hora-altura: 56px; --cal-largura-gutter: 44px; }
+  .cal-cabecalho { top: var(--header-h); }
+  .cal-hora-label { scroll-margin-top: calc(var(--header-h) + 60px); }
+  .cal-dia-nome { font-size: 0.62rem; }
+  .cal-dia-numero { width: 24px; height: 24px; font-size: 0.9rem; }
+  .cal-evento { font-size: 0.68rem; padding: 3px 5px; }
+  .agendamento-popover { padding: 20px 18px 18px; }
+
+  /* No mobile a semana some e vira seleção de 1 dia por vez, com abas
+     deslizáveis — 7 colunas espremidas não cabiam bem na tela pequena. */
+  .calendario-dias-mobile {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px 2px 10px;
+    margin-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cal-chip-dia {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 46px;
+    padding: 8px 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--ink-soft);
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .cal-chip-dia-nome {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  .cal-chip-dia-numero {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+
+  .cal-chip-dia-hoje .cal-chip-dia-nome { color: var(--accent-strong); }
+
+  .cal-chip-dia-ativo {
+    background: var(--brand-coffee);
+    border-color: var(--brand-coffee);
+  }
+  .cal-chip-dia-ativo .cal-chip-dia-nome,
+  .cal-chip-dia-ativo .cal-chip-dia-numero { color: var(--ink-on-dark); }
+  .cal-chip-dia-ativo.cal-chip-dia-hoje .cal-chip-dia-nome { color: var(--brand-rose); }
 }
 
 /* ===== CELULAR PEQUENO (até 420px) ===== */

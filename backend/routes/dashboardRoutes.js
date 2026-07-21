@@ -33,29 +33,50 @@ router.get("/", requireAuth, async (req, res) => {
     .filter((a) => STATUS_QUE_CONTAM_COMO_FATURAMENTO.includes(a.status))
     .reduce((soma, a) => soma + Number(a.valor || 0), 0);
 
-  const totalAgendamentosMes = lista.length;
   const confirmadosMes = lista.filter((a) =>
     STATUS_QUE_CONTAM_COMO_FATURAMENTO.includes(a.status),
   ).length;
+  const totalAgendamentosMes = confirmadosMes;
 
   const ticketMedio =
     confirmadosMes > 0 ? faturamentoMes / confirmadosMes : 0;
 
   // próximos agendamentos (hoje em diante), pra mostrar uma lista rápida
+  // Regras de exibição:
+  // 1. Cancelado nunca aparece nessa lista.
+  // 2. Ordena por data/hora mais próxima primeiro.
+  // 3. Em caso de empate no mesmo horário, confirmado/concluído aparece
+  //    antes de aguardando pagamento/confirmação.
+  const PRIORIDADE_STATUS = {
+    confirmado: 0,
+    concluido: 0,
+    aguardando_pagamento: 1,
+    aguardando_confirmacao: 1,
+  };
+
   const agora = new Date().toISOString();
-  const { data: proximos, error: erroProximos } = await supabase
+  const { data: proximosBrutos, error: erroProximos } = await supabase
     .from("agendamentos")
     .select(
       "id, data_hora, valor, status, clientes(nome), servicos(nome), profissionais(nome)",
     )
     .eq("salao_id", salaoId)
     .gte("data_hora", agora)
+    .neq("status", "cancelado")
     .order("data_hora", { ascending: true })
-    .limit(5);
+    .limit(20);
 
   if (erroProximos) {
     console.error("Erro ao buscar próximos agendamentos:", erroProximos);
   }
+
+  const proximos = (proximosBrutos || [])
+    .sort((a, b) => {
+      const diffData = new Date(a.data_hora) - new Date(b.data_hora);
+      if (diffData !== 0) return diffData;
+      return (PRIORIDADE_STATUS[a.status] ?? 2) - (PRIORIDADE_STATUS[b.status] ?? 2);
+    })
+    .slice(0, 5);
 
   res.json({
     ok: true,

@@ -5,6 +5,44 @@ const estado = {
 };
 
 // ============================================================
+// PWA — registro do service worker + atualização automática
+// ============================================================
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/admin/sw.js")
+      .then((registro) => {
+        // Se já tinha um service worker novo esperando (ex.: você abriu o
+        // painel numa aba durante um deploy), manda ele assumir na hora.
+        if (registro.waiting) {
+          registro.waiting.postMessage({ tipo: "SKIP_WAITING" });
+        }
+
+        registro.addEventListener("updatefound", () => {
+          const novoWorker = registro.installing;
+          if (!novoWorker) return;
+          novoWorker.addEventListener("statechange", () => {
+            if (novoWorker.state === "installed" && navigator.serviceWorker.controller) {
+              novoWorker.postMessage({ tipo: "SKIP_WAITING" });
+            }
+          });
+        });
+      })
+      .catch((err) => console.error("Erro ao registrar service worker:", err));
+
+    // Quando o novo service worker assume o controle, recarrega a página
+    // uma vez pra já exibir a versão nova (evita ficar preso numa versão
+    // antiga em cache).
+    let recarregandoPorAtualizacao = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (recarregandoPorAtualizacao) return;
+      recarregandoPorAtualizacao = true;
+      window.location.reload();
+    });
+  });
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 async function chamarApi(caminho, opcoes = {}) {
@@ -162,7 +200,7 @@ async function carregarDashboard() {
       el("proximosVazio").hidden = true;
       dados.proximosAgendamentos.forEach((ag) => {
         const item = document.createElement("div");
-        item.className = "proximo-item";
+        item.className = "agendamento-item";
 
         const dataFormatada = new Date(ag.data_hora).toLocaleString("pt-BR", {
           day: "2-digit",
@@ -171,12 +209,20 @@ async function carregarDashboard() {
           minute: "2-digit",
         });
 
+        const rotulo = ROTULOS_STATUS[ag.status] || ag.status;
+
         item.innerHTML = `
-          <div>
-            <strong>${ag.clientes?.nome || "Cliente"}</strong> — ${ag.servicos?.nome || ""}
-            <div class="proximo-data">${dataFormatada} · ${ag.profissionais?.nome || ""}</div>
+          <div class="agendamento-info">
+            <span class="agendamento-cliente">
+              <strong>${escaparHtml(ag.clientes?.nome || "Cliente")}</strong>
+            </span>
+            <span class="agendamento-detalhe">
+              ${dataFormatada} · ${escaparHtml(ag.servicos?.nome || "")} · ${formatarMoeda(ag.valor)}
+            </span>
           </div>
-          <span>${formatarMoeda(ag.valor)}</span>
+          <div class="agendamento-lado">
+            <span class="status-badge status-${ag.status}">${rotulo}</span>
+          </div>
         `;
         lista.appendChild(item);
       });
@@ -453,7 +499,7 @@ el("formFaq").addEventListener("submit", async (e) => {
 });
 
 // ============================================================
-// AGENDAMENTOS
+// AGENDAMENTOS (calendário semanal)
 // ============================================================
 const ROTULOS_STATUS = {
   aguardando_pagamento: "Aguardando pagamento",
@@ -463,47 +509,342 @@ const ROTULOS_STATUS = {
   cancelado: "Cancelado",
 };
 
-function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
+// Precisa bater com --cal-hora-altura definido em style.css
+const ROW_HEIGHT_PX = 60;
+const DIAS_SEMANA = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const MESES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+// Qualquer dia dentro da semana atualmente exibida
+let semanaReferencia = new Date();
+
+// Índice (0-6) do dia escolhido na visão "1 dia por vez" do mobile.
+// null = ainda não escolhido -> assume hoje (se estiver na semana) ou domingo.
+let diaSelecionadoIndice = null;
+
+// Guarda o último resultado buscado para poder re-renderizar (troca de dia,
+// virar a tela, redimensionar a janela) sem precisar buscar tudo de novo.
+let ultimoResultadoSemana = null;
+
+const mediaMobile = window.matchMedia("(max-width: 820px)");
+
+function ehMobile() {
+  return mediaMobile.matches;
 }
 
-if (!el("filtroData").value) el("filtroData").value = hojeISO();
+mediaMobile.addEventListener("change", () => {
+  if (ultimoResultadoSemana) {
+    renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia);
+  }
+});
 
-el("filtroData").addEventListener("change", carregarAgendamentos);
+function formatarDataISO(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+function inicioDaSemana(data) {
+  const d = new Date(data);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+
+function mesmoDia(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+el("btnSemanaAnterior").addEventListener("click", () => navegarCalendario(-1));
+el("btnSemanaProxima").addEventListener("click", () => navegarCalendario(1));
+el("btnSemanaHoje").addEventListener("click", () => {
+  semanaReferencia = new Date();
+  diaSelecionadoIndice = null; // recalculado no render: cai em "hoje"
+  carregarAgendamentos();
+});
 el("filtroStatus").addEventListener("change", carregarAgendamentos);
 
+// No mobile navega 1 dia por vez (combina com a visão de 1 dia); no
+// desktop navega semana inteira. Só busca de novo na API quando a
+// navegação cruza pra uma semana diferente da que já está carregada.
+function navegarCalendario(direcao) {
+  if (ehMobile() && diaSelecionadoIndice !== null) {
+    const novoIndice = diaSelecionadoIndice + direcao;
+
+    if (novoIndice < 0) {
+      semanaReferencia = new Date(semanaReferencia);
+      semanaReferencia.setDate(semanaReferencia.getDate() - 7);
+      diaSelecionadoIndice = 6;
+      carregarAgendamentos();
+    } else if (novoIndice > 6) {
+      semanaReferencia = new Date(semanaReferencia);
+      semanaReferencia.setDate(semanaReferencia.getDate() + 7);
+      diaSelecionadoIndice = 0;
+      carregarAgendamentos();
+    } else {
+      diaSelecionadoIndice = novoIndice;
+      if (ultimoResultadoSemana) {
+        renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia);
+      }
+    }
+    return;
+  }
+
+  semanaReferencia = new Date(semanaReferencia);
+  semanaReferencia.setDate(semanaReferencia.getDate() + direcao * 7);
+  diaSelecionadoIndice = null;
+  carregarAgendamentos();
+}
+
 async function carregarAgendamentos() {
-  const lista = el("listaAgendamentos");
-  lista.innerHTML = "";
-  el("agendamentosVazio").hidden = true;
+  const grid = el("calendarioSemana");
+  const vazio = el("agendamentosVazio");
+  vazio.hidden = true;
 
-  const data = el("filtroData").value || hojeISO();
+  const inicio = inicioDaSemana(semanaReferencia);
+  const diasDaSemana = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(inicio);
+    d.setDate(inicio.getDate() + i);
+    diasDaSemana.push(d);
+  }
+
   const status = el("filtroStatus").value;
-
-  const params = new URLSearchParams({ data });
-  if (status) params.set("status", status);
+  grid.innerHTML = '<p class="cal-vazia-semana">Carregando…</p>';
 
   try {
-    const { agendamentos } = await chamarApi(`/admin/api/agendamentos?${params}`);
+    // A API só filtra por um dia por vez — buscamos os 7 dias em paralelo
+    const resultadosPorDia = await Promise.all(
+      diasDaSemana.map((d) => {
+        const params = new URLSearchParams({ data: formatarDataISO(d) });
+        if (status) params.set("status", status);
+        return chamarApi(`/admin/api/agendamentos?${params}`)
+          .then((r) => r.agendamentos || [])
+          .catch(() => []);
+      })
+    );
 
-    if (!agendamentos || agendamentos.length === 0) {
-      el("agendamentosVazio").hidden = false;
-      return;
-    }
+    const totalEventos = resultadosPorDia.reduce((soma, lista) => soma + lista.length, 0);
+    vazio.hidden = totalEventos > 0;
 
-    agendamentos.forEach((ag) => renderizarAgendamento(ag, lista));
+    renderizarCalendarioSemana(diasDaSemana, resultadosPorDia);
   } catch (err) {
     console.error("Erro ao carregar agendamentos:", err);
+    grid.innerHTML = '<p class="cal-vazia-semana">Não foi possível carregar os agendamentos.</p>';
   }
 }
 
-function renderizarAgendamento(ag, container) {
-  const item = document.createElement("div");
-  item.className = "agendamento-item";
+function capitalizar(texto) {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
 
-  const hora = new Date(ag.data_hora).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
+// No mobile (1 dia por vez) mostra o dia por extenso; no desktop (semana
+// inteira) mostra o intervalo da semana.
+function atualizarRotulo(dias, mobile) {
+  const rotulo = el("calendarioRotuloSemana");
+
+  if (mobile) {
+    const d = dias[diaSelecionadoIndice] || dias[0];
+    const nomeDia = capitalizar(d.toLocaleDateString("pt-BR", { weekday: "long" }));
+    rotulo.textContent = `${nomeDia}, ${d.getDate()} de ${MESES_ABREV[d.getMonth()]}.`;
+    return;
+  }
+
+  const inicioSemana = dias[0];
+  const fimSemana = dias[6];
+  const mesmoMes = inicioSemana.getMonth() === fimSemana.getMonth();
+
+  rotulo.textContent = mesmoMes
+    ? `${inicioSemana.getDate()} – ${fimSemana.getDate()} de ${MESES_ABREV[fimSemana.getMonth()]}. de ${fimSemana.getFullYear()}`
+    : `${inicioSemana.getDate()} de ${MESES_ABREV[inicioSemana.getMonth()]}. – ${fimSemana.getDate()} de ${MESES_ABREV[fimSemana.getMonth()]}. de ${fimSemana.getFullYear()}`;
+}
+
+function renderizarCalendarioSemana(dias, eventosPorDia) {
+  ultimoResultadoSemana = { dias, eventosPorDia };
+
+  const grid = el("calendarioSemana");
+  const hoje = new Date();
+
+  renderizarChipsDias(dias, hoje);
+
+  const mobile = ehMobile();
+
+  // No mobile mostramos só o dia escolhido (mais legível que espremer 7
+  // colunas numa tela pequena); no desktop mostramos a semana inteira.
+  let indicesParaExibir = [0, 1, 2, 3, 4, 5, 6];
+  if (mobile) {
+    if (diaSelecionadoIndice === null) {
+      const indiceHoje = dias.findIndex((d) => mesmoDia(d, hoje));
+      diaSelecionadoIndice = indiceHoje !== -1 ? indiceHoje : 0;
+    }
+    indicesParaExibir = [diaSelecionadoIndice];
+  }
+
+  grid.classList.toggle("calendario-semana--dia-unico", indicesParaExibir.length === 1);
+  grid.style.setProperty("--cal-num-dias", indicesParaExibir.length);
+  atualizarRotulo(dias, mobile);
+  el("btnSemanaAnterior").setAttribute("aria-label", mobile ? "Dia anterior" : "Semana anterior");
+  el("btnSemanaProxima").setAttribute("aria-label", mobile ? "Próximo dia" : "Próxima semana");
+
+  // Intervalo de horas exibido: 6h–22h fixo, só alargado se algum
+  // agendamento da semana cair fora dessa faixa (mantém a mesma faixa ao
+  // trocar de dia no mobile, pra não "pular" a régua de horários).
+  let horaMin = 6;
+  let horaMax = 22;
+  eventosPorDia.flat().forEach((ag) => {
+    const inicioEvento = new Date(ag.data_hora);
+    const fimEvento = new Date(inicioEvento.getTime() + ag.duracao_minutos * 60000);
+    horaMin = Math.min(horaMin, inicioEvento.getHours());
+    const horaFimArredondada = fimEvento.getMinutes() > 0 ? fimEvento.getHours() + 1 : fimEvento.getHours();
+    horaMax = Math.max(horaMax, horaFimArredondada);
+  });
+
+  const totalHoras = horaMax - horaMin;
+
+  let cabecalhoHtml = '<div class="cal-canto"></div>';
+  indicesParaExibir.forEach((indiceDia) => {
+    const d = dias[indiceDia];
+    const ehHoje = mesmoDia(d, hoje);
+    cabecalhoHtml += `
+      <div class="cal-dia-cabecalho${ehHoje ? " cal-dia-cabecalho-hoje" : ""}">
+        <span class="cal-dia-nome">${DIAS_SEMANA[d.getDay()]}</span>
+        <span class="cal-dia-numero">${d.getDate()}</span>
+      </div>`;
+  });
+
+  let horasHtml = "";
+  for (let h = horaMin; h < horaMax; h++) {
+    horasHtml += `<div class="cal-hora-label" data-hora="${h}"><span>${String(h).padStart(2, "0")}:00</span></div>`;
+  }
+
+  let colunasHtml = "";
+  indicesParaExibir.forEach((indiceDia) => {
+    const d = dias[indiceDia];
+    const ehHoje = mesmoDia(d, hoje);
+    const eventos = calcularLayoutEventos(eventosPorDia[indiceDia] || []);
+
+    let eventosHtml = "";
+    eventos.forEach(({ ag, coluna, totalColunas }) => {
+      const inicioEvento = new Date(ag.data_hora);
+      const minutosDesdeInicioGrid = (inicioEvento.getHours() - horaMin) * 60 + inicioEvento.getMinutes();
+      const top = (minutosDesdeInicioGrid / 60) * ROW_HEIGHT_PX;
+      const altura = Math.max((ag.duracao_minutos / 60) * ROW_HEIGHT_PX, 22);
+      const largura = 100 / totalColunas;
+      const esquerda = largura * coluna;
+      const hora = inicioEvento.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+      eventosHtml += `
+        <div class="cal-evento cal-evento-${ag.status}"
+             style="top:${top}px; height:${altura}px; left:calc(${esquerda}% + 2px); width:calc(${largura}% - 4px);"
+             data-id="${ag.id}">
+          <span class="cal-evento-hora">${hora}</span>
+          <span class="cal-evento-cliente">${escaparHtml(ag.clientes?.nome || "Cliente")}</span>
+          <span class="cal-evento-detalhe">${escaparHtml(ag.servicos?.nome || "")}</span>
+        </div>`;
+    });
+
+    colunasHtml += `
+      <div class="cal-dia-coluna${ehHoje ? " cal-dia-coluna-hoje" : ""}" style="height:${totalHoras * ROW_HEIGHT_PX}px;" data-dia="${indiceDia}">
+        ${eventosHtml}
+      </div>`;
+  });
+
+  grid.innerHTML = `
+    <div class="cal-cabecalho">${cabecalhoHtml}</div>
+    <div class="cal-corpo">
+      <div class="cal-horas">${horasHtml}</div>
+      <div class="cal-dias">${colunasHtml}</div>
+    </div>
+  `;
+
+  const mapaEventos = {};
+  eventosPorDia.flat().forEach((ag) => {
+    mapaEventos[ag.id] = ag;
+  });
+
+  grid.querySelectorAll(".cal-evento").forEach((elemento) => {
+    elemento.addEventListener("click", () => {
+      const ag = mapaEventos[elemento.dataset.id];
+      if (ag) abrirDetalheAgendamento(ag);
+    });
+  });
+
+  // No mobile, ao trocar de dia sempre volta pro início da faixa (6h),
+  // assim nada aparece cortado por baixo do cabeçalho fixo.
+  if (mobile) {
+    const alvo = grid.querySelector(`.cal-hora-label[data-hora="${horaMin}"]`);
+    if (alvo) {
+      requestAnimationFrame(() => alvo.scrollIntoView({ block: "start", behavior: "auto" }));
+    }
+  }
+}
+
+// Fileira de "abas" de dia usada só no mobile (visão de 1 dia por vez).
+// No desktop fica escondida via CSS, mas montamos sempre pra já existir
+// pronta quando a tela for redimensionada pra baixo de 820px.
+function renderizarChipsDias(dias, hoje) {
+  const container = el("calendarioDiasMobile");
+  container.innerHTML = "";
+
+  dias.forEach((d, indice) => {
+    const ehHoje = mesmoDia(d, hoje);
+    const ehAtivo = diaSelecionadoIndice === indice;
+
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `cal-chip-dia${ehAtivo ? " cal-chip-dia-ativo" : ""}${ehHoje ? " cal-chip-dia-hoje" : ""}`;
+    chip.innerHTML = `
+      <span class="cal-chip-dia-nome">${DIAS_SEMANA[d.getDay()]}</span>
+      <span class="cal-chip-dia-numero">${d.getDate()}</span>
+    `;
+    chip.addEventListener("click", () => {
+      diaSelecionadoIndice = indice;
+      if (ultimoResultadoSemana) {
+        renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia);
+      }
+    });
+
+    container.appendChild(chip);
+  });
+}
+
+// Distribui, lado a lado, agendamentos que se sobrepõem no mesmo dia
+// (mesma ideia do Google Calendar quando há dois horários conflitantes).
+function calcularLayoutEventos(agendamentos) {
+  const ordenados = [...agendamentos].sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
+
+  const finalDasColunas = []; // horário (ms) em que cada coluna fica livre de novo
+  const posicionados = ordenados.map((ag) => {
+    const inicio = new Date(ag.data_hora).getTime();
+    const fim = inicio + ag.duracao_minutos * 60000;
+
+    let coluna = finalDasColunas.findIndex((fimColuna) => fimColuna <= inicio);
+    if (coluna === -1) {
+      coluna = finalDasColunas.length;
+      finalDasColunas.push(fim);
+    } else {
+      finalDasColunas[coluna] = fim;
+    }
+
+    return { ag, coluna };
+  });
+
+  const totalColunas = Math.max(finalDasColunas.length, 1);
+  return posicionados.map((p) => ({ ...p, totalColunas }));
+}
+
+function abrirDetalheAgendamento(ag) {
+  const corpo = el("agendamentoPopoverCorpo");
+
+  const hora = new Date(ag.data_hora).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const dataFormatada = new Date(ag.data_hora).toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
   });
 
   const telefoneLimpo = (ag.clientes?.telefone || "").replace(/\D/g, "");
@@ -513,35 +854,35 @@ function renderizarAgendamento(ag, container) {
 
   const rotulo = ROTULOS_STATUS[ag.status] || ag.status;
 
-  item.innerHTML = `
-    <div class="agendamento-info">
-      <span class="agendamento-hora">${hora}</span>
-      <span class="agendamento-cliente">
-        <strong>${escaparHtml(ag.clientes?.nome || "Cliente")}</strong>
-        ${linkWhatsapp ? " · " + linkWhatsapp : ""}
-      </span>
-      <span class="agendamento-detalhe">
-        ${escaparHtml(ag.servicos?.nome || "")} com ${escaparHtml(ag.profissionais?.nome || "")} · ${formatarMoeda(ag.valor)}
-      </span>
-      ${
-        ag.comprovante_url
-          ? `<span class="agendamento-comprovante"><a href="${ag.comprovante_url}" target="_blank" rel="noopener">Ver comprovante</a></span>`
-          : ""
-      }
-    </div>
-    <div class="agendamento-lado">
-      <span class="status-badge status-${ag.status}">${rotulo}</span>
-      <div class="agendamento-acoes"></div>
-    </div>
+  corpo.innerHTML = `
+    <h3 id="agendamentoPopoverTitulo" class="agendamento-hora" style="text-transform:capitalize; margin-bottom:6px;">
+      ${dataFormatada} · ${hora}
+    </h3>
+    <span class="agendamento-cliente" style="display:block; margin-bottom:6px;">
+      <strong>${escaparHtml(ag.clientes?.nome || "Cliente")}</strong>
+      ${linkWhatsapp ? " · " + linkWhatsapp : ""}
+    </span>
+    <span class="agendamento-detalhe" style="display:block; margin-bottom:10px;">
+      ${escaparHtml(ag.servicos?.nome || "")} com ${escaparHtml(ag.profissionais?.nome || "")} · ${formatarMoeda(ag.valor)}
+    </span>
+    ${
+      ag.comprovante_url
+        ? `<span class="agendamento-comprovante" style="display:block; margin-bottom:10px;"><a href="${ag.comprovante_url}" target="_blank" rel="noopener">Ver comprovante</a></span>`
+        : ""
+    }
+    <span class="status-badge status-${ag.status}">${rotulo}</span>
+    <div class="agendamento-acoes" id="agendamentoPopoverAcoes" style="margin-top:14px; justify-content:flex-start;"></div>
   `;
 
-  const acoes = item.querySelector(".agendamento-acoes");
-
+  const acoes = el("agendamentoPopoverAcoes");
   const botao = (texto, novoStatus, classe = "") => {
     const b = document.createElement("button");
     b.className = `btn-mini ${classe}`;
     b.textContent = texto;
-    b.addEventListener("click", () => mudarStatusAgendamento(ag.id, novoStatus));
+    b.addEventListener("click", async () => {
+      await mudarStatusAgendamento(ag.id, novoStatus);
+      fecharDetalheAgendamento();
+    });
     return b;
   };
 
@@ -553,8 +894,20 @@ function renderizarAgendamento(ag, container) {
     acoes.appendChild(botao("Cancelar", "cancelado", "btn-mini-perigo"));
   }
 
-  container.appendChild(item);
+  el("agendamentoPopoverOverlay").hidden = false;
 }
+
+function fecharDetalheAgendamento() {
+  el("agendamentoPopoverOverlay").hidden = true;
+}
+
+el("btnFecharAgendamentoPopover").addEventListener("click", fecharDetalheAgendamento);
+el("agendamentoPopoverOverlay").addEventListener("click", (e) => {
+  if (e.target === el("agendamentoPopoverOverlay")) fecharDetalheAgendamento();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !el("agendamentoPopoverOverlay").hidden) fecharDetalheAgendamento();
+});
 
 async function mudarStatusAgendamento(id, novoStatus) {
   try {

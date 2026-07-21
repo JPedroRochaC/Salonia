@@ -860,6 +860,249 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
 }
 .btn-mini-perigo:hover { background: var(--danger); color: #fff; }
 
+/* ===== CALENDÁRIO DE AGENDAMENTOS (visão semanal) ===== */
+
+/* IMPORTANTE: --cal-hora-altura precisa bater com a constante ROW_HEIGHT_PX
+   definida em script.js — se mudar uma, muda a outra. */
+.calendario-semana {
+  --cal-hora-altura: 60px;
+  --cal-largura-gutter: 56px;
+  --cal-num-dias: 7;
+}
+
+.calendario-dias-mobile { display: none; }
+
+.calendario-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.calendario-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-calendario-seta {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.btn-calendario-seta:hover { background: var(--brand-rose-tint); border-color: var(--accent-strong); }
+
+.btn-calendario-hoje { padding: 8px 16px; font-size: 0.86rem; }
+
+.calendario-rotulo {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--ink);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.calendario-filtro-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.calendario-filtro-status label { font-size: 0.86rem; color: var(--ink-soft); white-space: nowrap; }
+.calendario-filtro-status .input { width: auto; min-width: 190px; }
+
+.calendario-semana-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-xs);
+}
+
+.calendario-semana { min-width: 760px; }
+
+.cal-cabecalho {
+  display: grid;
+  grid-template-columns: var(--cal-largura-gutter) repeat(var(--cal-num-dias), 1fr);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+
+.cal-canto { border-right: 1px solid var(--border); }
+
+.cal-dia-cabecalho {
+  text-align: center;
+  padding: 10px 4px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.cal-dia-cabecalho:last-child { border-right: none; }
+
+.cal-dia-nome {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+}
+.cal-dia-numero {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cal-dia-cabecalho-hoje .cal-dia-numero { background: var(--brand-rose); color: var(--brand-coffee); }
+.cal-dia-cabecalho-hoje .cal-dia-nome { color: var(--accent-strong); }
+
+.cal-corpo {
+  display: grid;
+  grid-template-columns: var(--cal-largura-gutter) 1fr;
+}
+
+.cal-horas {
+  border-right: 1px solid var(--border);
+}
+
+.cal-hora-label {
+  height: var(--cal-hora-altura);
+  position: relative;
+  font-size: 0.7rem;
+  color: var(--ink-mute);
+  text-align: right;
+  padding-right: 8px;
+  scroll-margin-top: 12px;
+}
+.cal-hora-label span {
+  position: absolute;
+  top: -7px;
+  right: 8px;
+  background: var(--bg-elev);
+  padding-left: 4px;
+}
+.cal-hora-label:first-child span { top: 0; }
+
+.cal-dias {
+  display: grid;
+  grid-template-columns: repeat(var(--cal-num-dias), 1fr);
+}
+
+.cal-dia-coluna {
+  position: relative;
+  border-right: 1px solid var(--border);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--border) 0,
+    var(--border) 1px,
+    transparent 1px,
+    transparent var(--cal-hora-altura)
+  );
+}
+.cal-dia-coluna:last-child { border-right: none; }
+.cal-dia-coluna-hoje { background-color: rgba(255, 170, 170, 0.08); }
+
+.cal-evento {
+  position: absolute;
+  border-radius: 8px;
+  padding: 4px 7px;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  overflow: hidden;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+.cal-evento:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); z-index: 3; }
+
+.cal-evento-hora { display: block; font-weight: 700; }
+.cal-evento-cliente { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-evento-detalhe { display: block; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cal-evento-aguardando_pagamento,
+.cal-evento-aguardando_confirmacao {
+  background: var(--warning-soft);
+  border-left-color: #c99a00;
+  color: var(--warning-ink);
+}
+.cal-evento-confirmado {
+  background: var(--brand-rose-soft);
+  border-left-color: var(--accent-strong);
+  color: var(--brand-coffee);
+}
+.cal-evento-concluido {
+  background: var(--brand-coffee);
+  border-left-color: var(--bege);
+  color: var(--ink-on-dark);
+}
+.cal-evento-cancelado {
+  background: var(--danger-soft);
+  border-left-color: var(--danger);
+  color: var(--danger);
+  opacity: 0.75;
+}
+.cal-evento-cancelado .cal-evento-cliente { text-decoration: line-through; }
+
+.cal-vazia-semana { padding: 40px 16px; text-align: center; color: var(--ink-mute); }
+
+.calendario-semana--dia-unico .cal-dia-nome { font-size: 0.8rem; }
+.calendario-semana--dia-unico .cal-dia-numero { width: 34px; height: 34px; font-size: 1.2rem; }
+.calendario-semana--dia-unico .cal-evento { font-size: 0.82rem; padding: 6px 9px; }
+.calendario-semana--dia-unico .cal-evento-cliente { font-size: 0.86rem; }
+
+/* ===== POPOVER DE DETALHE DO AGENDAMENTO ===== */
+.agendamento-popover-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 24, 12, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.agendamento-popover {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--card-bg);
+  color: var(--bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 24px 22px 22px;
+}
+
+.agendamento-popover .sidebar-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
 /* ===== SUB-ABAS ===== */
 .sub-abas {
   display: flex;
@@ -1158,4 +1401,3 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
   color: var(--ink-on-dark-soft);
   font-style: italic;
 }
-

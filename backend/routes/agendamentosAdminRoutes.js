@@ -33,7 +33,11 @@ router.get("/", requireAuth, async (req, res) => {
     .lte("data_hora", fim)
     .order("data_hora", { ascending: true });
 
-  if (status) query = query.eq("status", status);
+  if (status) {
+  query = query.eq("status", status);
+} else {
+  query = query.neq("status", "cancelado");
+}
 
   const { data, error } = await query;
 
