@@ -123,11 +123,16 @@
           <img id="heroLogo" class="hero-logo" src="" alt="" hidden />
           <h1 id="heroNome"></h1>
           <p id="heroEndereco" class="hero-endereco"></p>
-          <p id="heroHorario" class="hero-horario"></p>
           <a id="agendarBtn" href="#" class="btn btn-primary btn-lg"
             >Agendar horário</a
           >
         </section>
+        <footer class="rodape-salonnia">
+          Agendamento online por
+          <a href="https://salonnia.vercel.app/" target="_blank" rel="noopener"
+            >Salonia</a
+          >
+        </footer>
       </main>
 
       <!-- VIEW: WIZARD DE AGENDAMENTO -->
@@ -362,6 +367,8 @@
 
     <!-- WIDGET IARA -->
     <div id="iaraWidget" class="iara-widget" hidden>
+      <div id="iaraTooltip" class="iara-tooltip">Alguma dúvida?</div>
+
       <div id="iaraPanel" class="iara-widget-panel" hidden>
         <div class="iara-widget-header">
           <span>Iara</span>
@@ -369,6 +376,7 @@
         </div>
         <div id="iaraBody" class="iara-widget-body"></div>
       </div>
+
       <button
         id="iaraFab"
         class="iara-widget-fab"

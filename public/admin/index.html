@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Seu Painel — Salonia</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/admin/style.css" />
     <link rel="stylesheet" href="/admin/responsividade.css" />
   </head>
@@ -11,6 +15,7 @@
     <!-- TELA DE LOGIN -->
     <div id="loginScreen" class="login-screen">
       <form id="loginForm" class="login-card">
+        <span class="login-marca">Salonia</span>
         <h1>Painel do salão</h1>
         <p class="login-sub">Entre com o email e senha cadastrados.</p>
 
@@ -28,7 +33,19 @@
 
     <!-- PAINEL (após login) -->
     <div id="painel" class="painel" hidden>
+      <header class="painel-header">
+        <button id="btnAbrirMenu" class="btn-hamburguer" aria-label="Abrir menu">
+          <span></span>
+        </button>
+        <img id="headerLogo" class="painel-header-logo" src="" alt="" hidden />
+        <span id="headerNomeSalao" class="header-titulo">—</span>
+      </header>
+
+      <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
+
       <aside class="sidebar">
+        <button id="btnFecharMenu" class="sidebar-close" aria-label="Fechar menu">×</button>
+
         <div class="sidebar-topo">
           <img id="sidebarLogo" class="sidebar-logo" src="" alt="" hidden />
           <div>
@@ -38,13 +55,32 @@
         </div>
 
         <nav class="sidebar-nav">
-          <button class="nav-item active" data-aba="dashboard">Dashboard</button>
-          <button class="nav-item" data-aba="personalizacao">Personalização</button>
-          <button class="nav-item" data-aba="servicos">Serviços &amp; Profissionais</button>
-          <button class="nav-item" data-aba="agendamentos">Agendamentos</button>
-          <button class="nav-item" data-aba="portfolio">Portfólio</button>
-          <button class="nav-item" data-aba="faq">Perguntas frequentes</button>
+          <button class="nav-item active" data-aba="dashboard">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+            Dashboard
+          </button>
+          <button class="nav-item" data-aba="personalizacao">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="13.5" r="1.2" fill="currentColor" stroke="none"/><path d="M9 15c1 1.2 5 1.2 6.5-.3"/></svg>
+            Personalização
+          </button>
+          <button class="nav-item" data-aba="servicos">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><path d="M20 5 8.5 16.5M9 8.5 20 19"/></svg>
+            Serviços &amp; Profissionais
+          </button>
+          <button class="nav-item" data-aba="agendamentos">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            Agendamentos
+          </button>
+          <button class="nav-item" data-aba="portfolio">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5.5-5-9.5 9"/></svg>
+            Portfólio
+          </button>
+          <button class="nav-item" data-aba="faq">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-8.4 8.4H12L4 21l1.4-3.6a8.4 8.4 0 1 1 15.6-5.9z"/><path d="M9.5 9.2a2.5 2.5 0 0 1 4.9.7c0 1.6-2.4 2-2.4 3.6" stroke-linecap="round"/><circle cx="12" cy="16.3" r=".2" fill="currentColor"/></svg>
+            Perguntas frequentes
+          </button>
           <button class="nav-item nav-item-bloqueado" data-aba="iara">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="3.5"/></svg>
             Iara <span class="badge-em-breve">em breve</span>
           </button>
         </nav>
@@ -115,40 +151,11 @@
             </fieldset>
 
             <fieldset>
-              <legend>Cores</legend>
-              <p class="fieldset-nota">
-                Essas são as mesmas cores que aparecem na página de agendamento
-                dos seus clientes — e já mudam aqui no painel também, pra você
-                ver como fica.
-              </p>
-              <div class="cores-linha">
-                <div>
-                  <label for="campoCorDestaque">Cor de destaque</label>
-                  <input type="color" id="campoCorDestaque" class="input-cor" />
-                </div>
-                <div>
-                  <label for="campoCorFundo">Cor de fundo</label>
-                  <input type="color" id="campoCorFundo" class="input-cor" />
-                </div>
-              </div>
-            </fieldset>
-
-            <fieldset>
               <legend>Redes sociais</legend>
               <label for="campoInstagram">Instagram</label>
               <input type="text" id="campoInstagram" class="input" placeholder="@seusalao" />
               <label for="campoWhatsapp">WhatsApp (link ou número)</label>
               <input type="text" id="campoWhatsappRedes" class="input" placeholder="5585999999999" />
-            </fieldset>
-
-            <fieldset>
-              <legend>Horário de funcionamento</legend>
-              <p class="fieldset-nota">
-                Marque os dias que o salão abre e defina o horário de cada um
-                — se algum dia fechar mais cedo ou mais tarde, é só ajustar
-                só aquele dia.
-              </p>
-              <div id="tabelaHorarios" class="tabela-horarios"></div>
             </fieldset>
 
             <fieldset>
@@ -187,38 +194,134 @@
         <!-- ABAS AINDA NÃO IMPLEMENTADAS -->
         <section class="aba" data-aba-conteudo="servicos" hidden>
           <h2>Serviços &amp; Profissionais</h2>
-          <p class="conteudo-sub">Em construção — próxima etapa do painel.</p>
+          <p class="conteudo-sub">O que o salão oferece e quem realiza cada serviço.</p>
+
+          <div class="sub-abas">
+            <button class="sub-aba-item active" data-sub-aba="listaServicosSub">Serviços</button>
+            <button class="sub-aba-item" data-sub-aba="listaProfissionaisSub">Profissionais</button>
+          </div>
+
+          <!-- SERVIÇOS -->
+          <div class="sub-aba" data-sub-aba-conteudo="listaServicosSub">
+            <form id="formServico" class="form-config form-inline">
+              <input type="hidden" id="servicoEditandoId" />
+              <div class="form-inline-campos">
+                <div>
+                  <label for="servicoNome">Nome</label>
+                  <input type="text" id="servicoNome" class="input" placeholder="Ex: Manicure" required />
+                </div>
+                <div>
+                  <label for="servicoDuracao">Duração (min)</label>
+                  <input type="number" id="servicoDuracao" class="input" min="5" step="5" required />
+                </div>
+                <div>
+                  <label for="servicoPreco">Preço (R$)</label>
+                  <input type="number" id="servicoPreco" class="input" min="0" step="0.01" required />
+                </div>
+              </div>
+              <p id="servicoErro" class="erro-envio" hidden></p>
+              <div class="faq-form-botoes">
+                <button type="submit" class="btn btn-primary" id="btnSalvarServico">Adicionar serviço</button>
+                <button type="button" class="btn btn-outline" id="btnCancelarEdicaoServico" hidden>Cancelar edição</button>
+              </div>
+            </form>
+
+            <div id="listaServicosAdmin" class="lista-itens"></div>
+            <p id="servicosVazio" class="menu-vazio" hidden>Nenhum serviço cadastrado ainda.</p>
+          </div>
+
+          <!-- PROFISSIONAIS -->
+          <div class="sub-aba" data-sub-aba-conteudo="listaProfissionaisSub" hidden>
+            <form id="formProfissional" class="form-config form-inline">
+              <input type="hidden" id="profissionalEditandoId" />
+              <div class="logo-upload-linha">
+                <img id="previewFotoProfissional" class="preview-logo" src="" alt="" hidden />
+                <div>
+                  <label for="profissionalFotoArquivo" class="btn btn-outline btn-upload">Escolher foto</label>
+                  <input type="file" id="profissionalFotoArquivo" accept="image/*" hidden />
+                  <p id="profissionalFotoStatus" class="logo-status"></p>
+                </div>
+              </div>
+              <input type="hidden" id="profissionalFotoUrl" />
+
+              <label for="profissionalNome">Nome</label>
+              <input type="text" id="profissionalNome" class="input" placeholder="Ex: Ana" required />
+
+              <label>Serviços que ela realiza</label>
+              <div id="profissionalServicosCheckboxes" class="checkboxes-servicos"></div>
+
+              <p id="profissionalErro" class="erro-envio" hidden></p>
+              <div class="faq-form-botoes">
+                <button type="submit" class="btn btn-primary" id="btnSalvarProfissional">Adicionar profissional</button>
+                <button type="button" class="btn btn-outline" id="btnCancelarEdicaoProfissional" hidden>Cancelar edição</button>
+              </div>
+            </form>
+
+            <div id="listaProfissionaisAdmin" class="lista-itens"></div>
+            <p id="profissionaisVazio" class="menu-vazio" hidden>Nenhum profissional cadastrado ainda.</p>
+          </div>
         </section>
 
         <section class="aba" data-aba-conteudo="agendamentos" hidden>
           <h2>Agendamentos</h2>
-          <p class="conteudo-sub">Veja e gerencie os agendamentos recebidos.</p>
+          <p class="conteudo-sub">Veja os agendamentos recebidos e configure os horários de cada profissional.</p>
 
-          <div class="agendamentos-filtros">
-            <div>
-              <label for="filtroData">Data</label>
-              <input type="date" id="filtroData" class="input" />
-            </div>
-            <div>
-              <label for="filtroStatus">Status</label>
-              <select id="filtroStatus" class="input">
-                <option value="">Todos</option>
-                <option value="aguardando_pagamento">Aguardando pagamento</option>
-                <option value="aguardando_confirmacao">Aguardando confirmação</option>
-                <option value="confirmado">Confirmado</option>
-                <option value="concluido">Concluído</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-            </div>
+          <div class="sub-abas">
+            <button class="sub-aba-item active" data-sub-aba="verAgendamentosSub">Agendamentos</button>
+            <button class="sub-aba-item" data-sub-aba="horariosDisponiveisSub">Horários disponíveis</button>
           </div>
 
-          <div id="listaAgendamentos" class="lista-agendamentos"></div>
-          <p id="agendamentosVazio" class="menu-vazio" hidden>Nenhum agendamento nesse dia.</p>
+          <div class="sub-aba" data-sub-aba-conteudo="verAgendamentosSub">
+            <div class="agendamentos-filtros">
+              <div>
+                <label for="filtroData">Data</label>
+                <input type="date" id="filtroData" class="input" />
+              </div>
+              <div>
+                <label for="filtroStatus">Status</label>
+                <select id="filtroStatus" class="input">
+                  <option value="">Todos</option>
+                  <option value="aguardando_pagamento">Aguardando pagamento</option>
+                  <option value="aguardando_confirmacao">Aguardando confirmação</option>
+                  <option value="confirmado">Confirmado</option>
+                  <option value="concluido">Concluído</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="listaAgendamentos" class="lista-agendamentos"></div>
+            <p id="agendamentosVazio" class="menu-vazio" hidden>Nenhum agendamento nesse dia.</p>
+          </div>
+
+          <div class="sub-aba" data-sub-aba-conteudo="horariosDisponiveisSub" hidden>
+            <p class="conteudo-sub" style="margin-bottom: 16px;">
+              Cada profissional tem sua própria grade — escolha os horários
+              certos em que ela atende em cada dia da semana (pode ter quantos
+              horários quiser por dia, ou nenhum se ela não atender naquele dia).
+            </p>
+
+            <label for="horarioProfissionalSelect">Profissional</label>
+            <select id="horarioProfissionalSelect" class="input" style="max-width: 320px; margin-bottom: 20px;"></select>
+
+            <div id="gradeHorarios" class="grade-horarios"></div>
+            <p id="gradeHorariosVazio" class="menu-vazio" hidden>Cadastre um profissional primeiro, na aba "Serviços &amp; Profissionais".</p>
+          </div>
         </section>
 
         <section class="aba" data-aba-conteudo="portfolio" hidden>
           <h2>Portfólio</h2>
-          <p class="conteudo-sub">Em construção — próxima etapa do painel.</p>
+          <p class="conteudo-sub">Fotos dos trabalhos, mostradas pros clientes na página de agendamento.</p>
+
+          <div class="portfolio-upload-bloco">
+            <label for="portfolioFotoArquivo" class="btn btn-outline btn-upload">Escolher foto</label>
+            <input type="file" id="portfolioFotoArquivo" accept="image/*" hidden />
+            <input type="text" id="portfolioDescricao" class="input" placeholder="Descrição (opcional)" />
+            <p id="portfolioStatus" class="logo-status"></p>
+          </div>
+
+          <div id="gridPortfolio" class="grid-portfolio"></div>
+          <p id="portfolioVazioAdmin" class="menu-vazio" hidden>Nenhuma foto no portfólio ainda.</p>
         </section>
 
         <!-- ABA: PERGUNTAS FREQUENTES (Iara) -->

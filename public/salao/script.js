@@ -36,10 +36,10 @@ function dataLocalParaISO(date) {
 
 // Cria elemento com textContent seguro (evita XSS)
 function criarEl(tag, classes, texto) {
-  const el = document.createElement(tag);
-  if (classes) el.className = classes;
-  if (texto !== undefined) el.textContent = texto;
-  return el;
+  const elemento = document.createElement(tag);
+  if (classes) elemento.className = classes;
+  if (texto !== undefined) elemento.textContent = texto;
+  return elemento;
 }
 
 // Máscara simples de telefone BR: (85) 99999-9999
@@ -77,11 +77,6 @@ const slug = partesUrl[0];
 const modoAgendar = partesUrl[1] === "agendar";
 const modoPortfolio = partesUrl[1] === "portfolio";
 
-// Aplica, na hora, a última cor conhecida desse salão (salva em visitas
-// anteriores) — evita a tela de "Carregando..." piscar rosa (cor padrão)
-// enquanto os dados do salão ainda estão vindo do banco.
-if (slug) aplicarCoresCache(slug);
-
 init();
 
 async function init() {
@@ -96,17 +91,12 @@ async function init() {
     .eq("slug", slug)
     .maybeSingle();
 
-  if (error) {
-    console.error("Erro ao buscar salão:", error);
-    mostrarNaoEncontrado();
-    return;
-  }
-  if (!data) {
+  if (error || !data) {
+    if (error) console.error("Erro ao buscar salão:", error);
     mostrarNaoEncontrado();
     return;
   }
 
-  // campo "ativo" pode não existir ainda em salões antigos — só bloqueia se for explicitamente false
   if (data.ativo === false) {
     mostrarInativo(data);
     return;
@@ -130,7 +120,7 @@ async function init() {
     el("viewWizard").hidden = false;
     document.title = `Agendar — ${estado.salao.nome}`;
     definirMetaDescricao(
-      `Agende seu horário no ${estado.salao.nome} em poucos cliques.`,
+      `Agende seu horário no ${estado.salao.nome} em poucos cliques.`
     );
     iniciarWizard();
   } else if (modoPortfolio) {
@@ -142,7 +132,7 @@ async function init() {
     el("viewHome").hidden = false;
     document.title = estado.salao.nome;
     definirMetaDescricao(
-      `Agende seu horário no ${estado.salao.nome}. ${estado.salao.endereco || ""}`.trim(),
+      `Agende seu horário no ${estado.salao.nome}. ${estado.salao.endereco || ""}`.trim()
     );
     montarHome();
   }
@@ -161,313 +151,26 @@ function mostrarInativo(salao) {
   el("inactiveState").hidden = false;
 }
 
-// Atualiza a <meta name="description"> pra SEO básico por página
 function definirMetaDescricao(texto) {
   const metaEl = el("metaDescricao");
   if (metaEl) metaEl.setAttribute("content", texto);
 }
 
 // ============================================================
-// PERSONALIZAÇÃO
+// PERSONALIZAÇÃO DA MARCA (NOME E LOGO)
 // ============================================================
-
-// Mistura duas cores hex. quantidadeB=0 devolve corA puro, quantidadeB=1 devolve corB puro.
-// Serve pra derivar tons (cards, hover) a partir das 2 cores que a dona escolhe,
-// sem precisar de mais campos no banco.
-function misturarCores(corA, corB, quantidadeB) {
-  const hexParaRgb = (hex) => {
-    const limpo = hex.replace("#", "");
-    const cheio =
-      limpo.length === 3
-        ? limpo
-            .split("")
-            .map((c) => c + c)
-            .join("")
-        : limpo;
-    const bigint = parseInt(cheio, 16);
-    return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
-  };
-  const rgbParaHex = (r, g, b) =>
-    "#" +
-    [r, g, b]
-      .map((v) =>
-        Math.round(Math.min(255, Math.max(0, v)))
-          .toString(16)
-          .padStart(2, "0"),
-      )
-      .join("");
-
-  try {
-    const [r1, g1, b1] = hexParaRgb(corA);
-    const [r2, g2, b2] = hexParaRgb(corB);
-    return rgbParaHex(
-      r1 + (r2 - r1) * quantidadeB,
-      g1 + (g2 - g1) * quantidadeB,
-      b1 + (b2 - b1) * quantidadeB,
-    );
-  } catch {
-    return corA; // cor inválida: não quebra a página, só ignora a mistura
-  }
-}
-
-// Diz se uma cor hex é "clara" ou "escura" (luminância perceptiva),
-// pra decidir se o texto por cima dela deve ser escuro ou claro.
-function corEhClara(hex) {
-  try {
-    const limpo = hex.replace("#", "");
-    const cheio =
-      limpo.length === 3
-        ? limpo
-            .split("")
-            .map((c) => c + c)
-            .join("")
-        : limpo;
-    const bigint = parseInt(cheio, 16);
-    const r = (bigint >> 16) & 255;
-    const g = (bigint >> 8) & 255;
-    const b = bigint & 255;
-    const luminancia = (r * 299 + g * 587 + b * 114) / 1000; // 0 (preto) a 255 (branco)
-    return luminancia > 150;
-  } catch {
-    return true; // cor inválida: assume claro, que é o comportamento padrão de hoje
-  }
-}
-
-function chaveCorCache(slugSalao) {
-  return `salao_cores_${slugSalao}`;
-}
-
-// Aplica só as variáveis de cor (usado tanto com os dados reais do salão
-// quanto com o cache salvo de uma visita anterior, antes do banco responder)
-function aplicarCoresVisuais(corDestaque, corFundo) {
-  const accent = corDestaque || "#d10505";
-  document.documentElement.style.setProperty("--accent", accent);
-  document.documentElement.style.setProperty(
-    "--accent-hover",
-    misturarCores(accent, "#000000", 0.15),
-  );
-
-  const fundo = corFundo || "#ffaaaa";
-  document.documentElement.style.setProperty("--pink", fundo);
-  document.documentElement.style.setProperty(
-    "--cream",
-    misturarCores(fundo, "#ffffff", 0.6),
-  );
-
-  if (corEhClara(fundo)) {
-    document.documentElement.style.setProperty("--brown", "#141414");
-    document.documentElement.style.setProperty(
-      "--brown-soft",
-      "rgba(20, 20, 20, 0.62)",
-    );
-    document.documentElement.style.setProperty(
-      "--border-soft",
-      "rgba(20, 20, 20, 0.12)",
-    );
-    document.documentElement.style.setProperty(
-      "--border-strong",
-      "rgba(20, 20, 20, 0.22)",
-    );
-  } else {
-    document.documentElement.style.setProperty("--brown", "#ffffff");
-    document.documentElement.style.setProperty(
-      "--brown-soft",
-      "rgba(255, 255, 255, 0.72)",
-    );
-    document.documentElement.style.setProperty(
-      "--border-soft",
-      "rgba(255, 255, 255, 0.14)",
-    );
-    document.documentElement.style.setProperty(
-      "--border-strong",
-      "rgba(255, 255, 255, 0.28)",
-    );
-  }
-}
-
-// Lê o cache de cores dessa slug (se existir) e já aplica, antes da busca no banco
-function aplicarCoresCache(slugSalao) {
-  try {
-    const cache = localStorage.getItem(chaveCorCache(slugSalao));
-    if (!cache) return;
-    const { cor_destaque, cor_fundo } = JSON.parse(cache);
-    aplicarCoresVisuais(cor_destaque, cor_fundo);
-  } catch {
-    // cache corrompido ou localStorage indisponível: ignora, mantém o padrão
-  }
-}
-
-// Salva as cores reais desse salão pra próxima visita já nascer com a cor certa
-function salvarCoresCache(slugSalao, corDestaque, corFundo) {
-  try {
-    localStorage.setItem(
-      chaveCorCache(slugSalao),
-      JSON.stringify({ cor_destaque: corDestaque, cor_fundo: corFundo }),
-    );
-  } catch {
-    // localStorage indisponível (modo privado etc.): sem problema, só não guarda
-  }
-}
-
-// ============================================================
-// HORÁRIO DE FUNCIONAMENTO (por dia da semana)
-// ============================================================
-// Modelo novo: salao.horarios_excecao guarda, pra cada dia da semana
-// (chave "0" a "6", igual Date.getDay(): 0=domingo...6=sábado), se o salão
-// abre nesse dia e o horário próprio dele:
-//   { "1": { aberto: true, abertura: "09:00", fechamento: "19:00" },
-//     "6": { aberto: true, abertura: "09:00", fechamento: "14:00" },
-//     "0": { aberto: false } }
-// Se essa configuração ainda não existir (salão antigo, configurado antes
-// dessa mudança), caímos pro modelo antigo: um horário único
-// (horario_abertura/horario_fechamento) aplicado aos dias marcados em
-// dias_funcionamento.
-const DIAS_ABREV = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-
-const NOMES_DIAS_PARA_INDICE = {
-  domingo: 0,
-  dom: 0,
-  segunda: 1,
-  "segunda-feira": 1,
-  seg: 1,
-  terca: 2,
-  "terca-feira": 2,
-  ter: 2,
-  quarta: 3,
-  "quarta-feira": 3,
-  qua: 3,
-  quinta: 4,
-  "quinta-feira": 4,
-  qui: 4,
-  sexta: 5,
-  "sexta-feira": 5,
-  sex: 5,
-  sabado: 6,
-  "sabado-feira": 6,
-  sab: 6,
-};
-
-function removerAcentos(texto) {
-  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-// (modelo antigo) converte dias_funcionamento, em qualquer formato salvo,
-// numa lista de índices 0-6
-function normalizarDiasFuncionamento(dias) {
-  if (!Array.isArray(dias) || dias.length === 0) return [];
-  const indices = dias
-    .map((item) => {
-      if (typeof item === "number") return item;
-      if (typeof item === "string") {
-        const limpo = removerAcentos(item.trim().toLowerCase());
-        if (/^\d+$/.test(limpo)) return Number(limpo);
-        return NOMES_DIAS_PARA_INDICE[limpo] ?? null;
-      }
-      return null;
-    })
-    .filter((d) => d !== null && d >= 0 && d <= 6);
-  return [...new Set(indices)];
-}
-
-// Devolve { aberto, abertura, fechamento } pro dia da semana pedido (0-6),
-// já resolvendo modelo novo vs. modelo antigo.
-function obterHorarioDoDia(salao, diaSemana) {
-  const porDia = salao?.horarios_excecao;
-
-  if (porDia && typeof porDia === "object" && !Array.isArray(porDia)) {
-    const config = porDia[diaSemana] ?? porDia[String(diaSemana)];
-    if (config) {
-      return {
-        aberto: config.aberto !== false,
-        abertura: (config.abertura || salao.horario_abertura || "").slice(0, 5),
-        fechamento: (config.fechamento || salao.horario_fechamento || "").slice(0, 5),
-      };
-    }
-  }
-
-  // modelo antigo (fallback)
-  const diasAntigos = normalizarDiasFuncionamento(salao?.dias_funcionamento);
-  const semRestricao =
-    typeof salao?.dias_funcionamento === "string" || diasAntigos.length === 0;
-
-  return {
-    aberto: semRestricao || diasAntigos.includes(diaSemana),
-    abertura: (salao?.horario_abertura || "").slice(0, 5),
-    fechamento: (salao?.horario_fechamento || "").slice(0, 5),
-  };
-}
-
-function salaoAbreNoDia(salao, date) {
-  return obterHorarioDoDia(salao, date.getDay()).aberto;
-}
-
-// Monta um texto único juntando os dias com o mesmo horário, tipo:
-// "Seg a Sex: 09:00 às 19:00 · Sáb: 09:00 às 14:00"
-function formatarHorarioSemana(salao) {
-  const infos = [];
-  for (let d = 0; d <= 6; d++) infos.push(obterHorarioDoDia(salao, d));
-
-  if (infos.every((info) => !info.aberto)) return "Fechado";
-
-  const assinatura = (info) =>
-    info.aberto ? `${info.abertura}|${info.fechamento}` : "fechado";
-
-  const visitado = new Array(7).fill(false);
-  const grupos = [];
-
-  for (let d = 0; d <= 6; d++) {
-    if (visitado[d] || !infos[d].aberto) continue;
-    const chave = assinatura(infos[d]);
-    let fim = d;
-    visitado[d] = true;
-    while (
-      infos[(fim + 1) % 7]?.aberto &&
-      assinatura(infos[(fim + 1) % 7]) === chave &&
-      !visitado[(fim + 1) % 7]
-    ) {
-      fim = (fim + 1) % 7;
-      visitado[fim] = true;
-    }
-    grupos.push({ inicio: d, fim, abertura: infos[d].abertura, fechamento: infos[d].fechamento });
-  }
-
-  return grupos
-    .map((g) => {
-      const diasTexto =
-        g.inicio === g.fim
-          ? DIAS_ABREV[g.inicio]
-          : `${DIAS_ABREV[g.inicio]} a ${DIAS_ABREV[g.fim]}`;
-      return `${diasTexto}: ${g.abertura} às ${g.fechamento}`;
-    })
-    .join(" · ");
-}
-
 function aplicarPersonalizacao() {
   const { salao } = estado;
 
-  // cor de destaque (topbar, botões, dots) — o hover fica um pouco mais escuro
-  // automaticamente, pra não precisar de mais um campo no banco só pra isso.
-  // cor de fundo da página — e o "--cream", usado em quase todo card/superfície
-  // (drawer do menu, resumo, Pix, portfólio, etc.), passa a ser um tom mais claro
-  // dessa mesma cor, em vez de ficar fixo.
-  aplicarCoresVisuais(salao.cor_destaque, salao.cor_fundo);
-  salvarCoresCache(slug, salao.cor_destaque || "#d10505", salao.cor_fundo || "#ffaaaa");
-
-  // nome do salão
   el("salaoNome").textContent = salao.nome;
 
-  // logo (topbar)
   if (salao.logo_url) {
     el("salaoLogo").src = salao.logo_url;
     el("salaoLogo").alt = salao.nome;
     el("salaoLogo").hidden = false;
-  }
-
-  // ícone da aba do navegador (favicon) e título — usa a mesma logo/nome
-  // configurados na Personalização, em vez de ficar genérico
-  if (salao.logo_url) {
     el("favicon").href = salao.logo_url;
   }
+
   if (salao.nome) {
     document.title = salao.nome;
   }
@@ -479,14 +182,12 @@ function aplicarPersonalizacao() {
 function montarMenu() {
   const { salao } = estado;
   el("menuEndereco").textContent = salao.endereco || "Não informado";
-  el("menuHorario").textContent = formatarHorarioSemana(salao);
+  el("menuHorario").textContent = "Varia por profissional — confira ao agendar";
   montarRedesSociais();
   carregarPortfolio();
   el("menuPortfolioLink").href = `/${slug}/portfolio`;
 }
 
-// Lê o jsonb "redes_sociais" do salão, ex: { instagram: "meusalao", whatsapp: "5585999999999" }
-// Aceita tanto um handle/telefone puro quanto uma URL completa já pronta.
 function montarRedesSociais() {
   const redes = estado.salao.redes_sociais || {};
   let algumaVisivel = false;
@@ -518,18 +219,13 @@ async function carregarPortfolio() {
     .select("*")
     .eq("salao_id", estado.salao.id)
     .order("ordem")
-    .limit(6); // só uma prévia aqui; a página /portfolio mostra todas
+    .limit(6);
 
   const container = el("menuPortfolio");
   container.innerHTML = "";
 
-  if (error) {
-    console.error("Erro ao carregar portfólio:", error);
-    el("menuPortfolioVazio").hidden = false;
-    return;
-  }
-
-  if (!data || data.length === 0) {
+  if (error || !data || data.length === 0) {
+    if (error) console.error("Erro ao carregar portfólio:", error);
     el("menuPortfolioVazio").hidden = false;
     el("menuPortfolioLink").hidden = true;
     return;
@@ -546,7 +242,7 @@ async function carregarPortfolio() {
 }
 
 // ============================================================
-// PÁGINA DE PORTFÓLIO (/:slug/portfolio)
+// PÁGINA DE PORTFÓLIO
 // ============================================================
 async function montarPaginaPortfolio() {
   const { salao } = estado;
@@ -604,7 +300,7 @@ async function montarPaginaPortfolio() {
 }
 
 // ============================================================
-// LIGHTBOX DO PORTFÓLIO
+// LIGHTBOX
 // ============================================================
 let lightboxIndiceAtual = 0;
 
@@ -640,7 +336,7 @@ function lightboxProximo() {
 }
 
 function configurarLightbox() {
-  if (estado.lightboxConfigurado) return; // listeners só precisam ser presos uma vez
+  if (estado.lightboxConfigurado) return;
   estado.lightboxConfigurado = true;
 
   el("lightboxFechar").addEventListener("click", fecharLightbox);
@@ -648,7 +344,7 @@ function configurarLightbox() {
   el("lightboxProximo").addEventListener("click", lightboxProximo);
 
   el("portfolioLightbox").addEventListener("click", (e) => {
-    if (e.target === el("portfolioLightbox")) fecharLightbox(); // clicou fora da foto
+    if (e.target === el("portfolioLightbox")) fecharLightbox();
   });
 
   document.addEventListener("keydown", (e) => {
@@ -688,7 +384,6 @@ function montarHome() {
   }
   el("heroNome").textContent = salao.nome;
   el("heroEndereco").textContent = salao.endereco || "";
-  el("heroHorario").textContent = `Aberto ${formatarHorarioSemana(salao)}`;
   el("agendarBtn").href = `/${slug}/agendar`;
 }
 
@@ -700,7 +395,6 @@ async function iniciarWizard() {
     .querySelectorAll(".wizard-back")
     .forEach((btn) => btn.addEventListener("click", voltarPasso));
 
-  // máscara de telefone
   el("inputTelefone").addEventListener("input", (e) => {
     e.target.value = aplicarMascaraTelefone(e.target.value);
   });
@@ -709,7 +403,7 @@ async function iniciarWizard() {
     irParaPasso(1);
   });
   el("btnContinuarProfissional").addEventListener("click", () =>
-    irParaPasso(2),
+    irParaPasso(2)
   );
 
   el("inputData").min = new Date().toISOString().slice(0, 10);
@@ -765,19 +459,13 @@ async function carregarServicos() {
   if (error) {
     console.error("Erro ao carregar serviços:", error);
     container.appendChild(
-      criarEl(
-        "p",
-        "menu-vazio",
-        "Erro ao carregar serviços. Recarregue a página.",
-      ),
+      criarEl("p", "menu-vazio", "Erro ao carregar serviços. Recarregue a página.")
     );
     return;
   }
 
   if (!data || data.length === 0) {
-    container.appendChild(
-      criarEl("p", "menu-vazio", "Nenhum serviço disponível."),
-    );
+    container.appendChild(criarEl("p", "menu-vazio", "Nenhum serviço disponível."));
     return;
   }
 
@@ -789,7 +477,7 @@ async function carregarServicos() {
     const info = criarEl(
       "span",
       null,
-      `${servico.duracao_minutos}min — R$ ${Number(servico.preco).toFixed(2)}`,
+      `${servico.duracao_minutos}min — R$ ${Number(servico.preco).toFixed(2)}`
     );
     btn.appendChild(nome);
     btn.appendChild(info);
@@ -810,9 +498,7 @@ async function carregarServicos() {
 async function carregarProfissionais() {
   const container = el("listaProfissionais");
   container.innerHTML = "";
-  container.appendChild(
-    criarEl("p", "menu-vazio", "Carregando profissionais..."),
-  );
+  container.appendChild(criarEl("p", "menu-vazio", "Carregando profissionais..."));
 
   const { data, error } = await sb
     .from("profissional_servicos")
@@ -826,11 +512,7 @@ async function carregarProfissionais() {
   if (error) {
     console.error("Erro ao carregar profissionais:", error);
     container.appendChild(
-      criarEl(
-        "p",
-        "menu-vazio",
-        "Erro ao carregar profissionais. Tente novamente.",
-      ),
+      criarEl("p", "menu-vazio", "Erro ao carregar profissionais. Tente novamente.")
     );
     return;
   }
@@ -841,19 +523,29 @@ async function carregarProfissionais() {
 
   if (ativos.length === 0) {
     container.appendChild(
-      criarEl(
-        "p",
-        "menu-vazio",
-        "Nenhuma profissional disponível para esse serviço.",
-      ),
+      criarEl("p", "menu-vazio", "Nenhuma profissional disponível para esse serviço.")
     );
     return;
   }
 
   ativos.forEach((prof) => {
     const btn = document.createElement("button");
-    btn.className = "option-card";
-    btn.appendChild(criarEl("strong", null, prof.nome));
+    btn.className = "option-card option-card-prof";
+
+    if (prof.foto_url) {
+      const foto = document.createElement("img");
+      foto.src = prof.foto_url;
+      foto.alt = prof.nome;
+      foto.className = "prof-foto";
+      btn.appendChild(foto);
+    } else {
+      const avatar = criarEl("div", "prof-avatar", prof.nome.charAt(0).toUpperCase());
+      btn.appendChild(avatar);
+    }
+
+    const info = criarEl("div", "prof-info");
+    info.appendChild(criarEl("strong", null, prof.nome));
+    btn.appendChild(info);
 
     btn.addEventListener("click", () => {
       estado.profissional = prof;
@@ -877,25 +569,29 @@ async function carregarHorarios() {
   el("semHorarios").textContent = "Nenhum horário livre nesse dia.";
   el("btnContinuarHorario").hidden = true;
 
-  // datas no fuso local (sem conversão UTC)
   const inicioDia = new Date(`${dataValor}T00:00:00`);
   const fimDia = new Date(`${dataValor}T23:59:59`);
 
-  if (!salaoAbreNoDia(estado.salao, inicioDia)) {
+  const { profissional } = estado;
+  const diaSemana = inicioDia.getDay();
+  const grade = profissional?.horarios_disponiveis || {};
+  const horariosDoDia = grade[diaSemana] ?? grade[String(diaSemana)] ?? [];
+
+  if (horariosDoDia.length === 0) {
     el("semHorarios").textContent =
-      "O salão não abre nesse dia. Escolha outra data.";
+      "Sem horários disponíveis nesse dia. Escolha outra data.";
     el("semHorarios").hidden = false;
     return;
   }
 
   container.appendChild(
-    criarEl("p", "menu-vazio", "Calculando horários disponíveis..."),
+    criarEl("p", "menu-vazio", "Calculando horários disponíveis...")
   );
 
   const { data: ocupados, error } = await sb
     .from("agenda_publica")
-    .select("data_hora, duracao_minutos")
-    .eq("profissional_id", estado.profissional.id)
+    .select("data_hora")
+    .eq("profissional_id", profissional.id)
     .gte("data_hora", dataLocalParaISO(inicioDia))
     .lte("data_hora", dataLocalParaISO(fimDia));
 
@@ -904,57 +600,33 @@ async function carregarHorarios() {
   if (error) {
     console.error("Erro ao carregar horários:", error);
     container.appendChild(
-      criarEl("p", "menu-vazio", "Erro ao carregar horários. Tente novamente."),
+      criarEl("p", "menu-vazio", "Erro ao carregar horários. Tente novamente.")
     );
     return;
   }
 
-  const { salao, servico } = estado;
-  const infoDia = obterHorarioDoDia(salao, inicioDia.getDay());
-  const [horaAb, minAb] = infoDia.abertura.split(":").map(Number);
-  const [horaFe, minFe] = infoDia.fechamento.split(":").map(Number);
+  const horariosOcupados = new Set(
+    (ocupados || []).map((o) => o.data_hora.substring(11, 16))
+  );
 
-  const abertura = new Date(`${dataValor}T00:00:00`);
-  abertura.setHours(horaAb, minAb, 0, 0);
-
-  const fechamento = new Date(`${dataValor}T00:00:00`);
-  fechamento.setHours(horaFe, minFe, 0, 0);
-
-  const duracao = servico.duracao_minutos;
-  const intervalo = 30;
-
-  const blocosOcupados = (ocupados || []).map((o) => {
-    const ini = new Date(o.data_hora);
-    const fim = new Date(ini.getTime() + o.duracao_minutos * 60000);
-    return [ini, fim];
-  });
-
-  const livres = [];
-  let cursor = new Date(abertura);
-
-  while (cursor.getTime() + duracao * 60000 <= fechamento.getTime()) {
-    const fimSlot = new Date(cursor.getTime() + duracao * 60000);
-    const conflita = blocosOcupados.some(
-      ([ini, fim]) => cursor < fim && fimSlot > ini,
-    );
-    if (!conflita) livres.push(new Date(cursor));
-    cursor = new Date(cursor.getTime() + intervalo * 60000);
-  }
+  const livres = [...horariosDoDia]
+    .filter((h) => !horariosOcupados.has(h))
+    .sort();
 
   if (livres.length === 0) {
     el("semHorarios").hidden = false;
     return;
   }
 
-  livres.forEach((h) => {
+  livres.forEach((horaTexto) => {
     const btn = document.createElement("button");
     btn.className = "slot-btn";
-    btn.textContent = h.toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    btn.textContent = horaTexto;
     btn.addEventListener("click", () => {
-      estado.horario = h;
+      const [h, m] = horaTexto.split(":").map(Number);
+      const dataHorario = new Date(`${dataValor}T00:00:00`);
+      dataHorario.setHours(h, m, 0, 0);
+      estado.horario = dataHorario;
       document
         .querySelectorAll(".slot-btn")
         .forEach((b) => b.classList.remove("selected"));
@@ -1035,8 +707,7 @@ async function confirmarAgendamento() {
     if (!response.ok || !resultado.ok) {
       console.error("Erro no agendamento:", resultado);
       mostrarErroGlobal(
-        resultado.erro ||
-          "Não foi possível confirmar o agendamento. Tente novamente.",
+        resultado.erro || "Não foi possível confirmar o agendamento. Tente novamente."
       );
       btn.disabled = false;
       btn.textContent = "Solicitar agendamento";
@@ -1058,20 +729,15 @@ async function confirmarAgendamento() {
     }
   } catch (err) {
     console.error("Erro inesperado:", err);
-    mostrarErroGlobal(
-      "Não foi possível conectar ao servidor. Tente novamente.",
-    );
+    mostrarErroGlobal("Não foi possível conectar ao servidor. Tente novamente.");
     btn.disabled = false;
     btn.textContent = "Solicitar agendamento";
   }
 }
 
 // ============================================================
-// PAGAMENTO DO SINAL (PIX + COMPROVANTE)
+// PAGAMENTO DO SINAL
 // ============================================================
-
-// Preenche a chave Pix e o valor do sinal. Se o salão não tiver valor_sinal
-// configurado, cai de volta pro preço do serviço (assumindo sinal = valor integral).
 function prepararTelaPagamento() {
   const { salao, servico } = estado;
   el("pixChave").textContent =
@@ -1083,8 +749,6 @@ function prepararTelaPagamento() {
       : Number(servico.preco);
   el("pixValor").textContent = `R$ ${valorSinal.toFixed(2)}`;
 
-  // sem o id do agendamento não dá pra vincular o comprovante com segurança,
-  // então some com o upload e deixa só a opção de enviar depois pelo WhatsApp
   el("comprovanteBloco").hidden = !estado.agendamentoId;
 
   el("inputComprovante").value = "";
@@ -1138,8 +802,6 @@ function esconderErroPagamento() {
   el("erroPagamento").hidden = true;
 }
 
-// Sobe o comprovante pro Storage (bucket "comprovantes") e vincula ao
-// agendamento via RPC "anexar_comprovante" (precisa existir no backend).
 async function enviarComprovante() {
   const arquivo = el("inputComprovante").files[0];
   esconderErroPagamento();
@@ -1162,9 +824,7 @@ async function enviarComprovante() {
 
   if (erroUpload) {
     console.error("Erro ao enviar comprovante:", erroUpload);
-    mostrarErroPagamento(
-      "Não foi possível enviar o comprovante. Tente novamente.",
-    );
+    mostrarErroPagamento("Não foi possível enviar o comprovante. Tente novamente.");
     btn.disabled = false;
     btn.textContent = "Enviar comprovante";
     return;
@@ -1182,7 +842,7 @@ async function enviarComprovante() {
   if (erroRpc) {
     console.error("Erro ao anexar comprovante:", erroRpc);
     mostrarErroPagamento(
-      "Comprovante enviado, mas houve um erro ao vincular. Avise o salão pelo WhatsApp.",
+      "Comprovante enviado, mas houve um erro ao vincular. Avise o salão pelo WhatsApp."
     );
     btn.disabled = false;
     btn.textContent = "Enviar comprovante";
@@ -1243,14 +903,14 @@ async function carregarPerguntasIara() {
   if (error) {
     console.error("Erro ao carregar perguntas da Iara:", error);
     body.appendChild(
-      criarEl("p", "menu-vazio", "Erro ao carregar. Tente novamente."),
+      criarEl("p", "menu-vazio", "Erro ao carregar. Tente novamente.")
     );
     return;
   }
 
   if (!data || data.length === 0) {
     body.appendChild(
-      criarEl("p", "menu-vazio", "Nenhuma pergunta cadastrada ainda."),
+      criarEl("p", "menu-vazio", "Nenhuma pergunta cadastrada ainda.")
     );
     return;
   }

@@ -12,6 +12,9 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import faqRoutes from "./routes/faqRoutes.js";
 import agendamentosAdminRoutes from "./routes/agendamentosAdminRoutes.js";
+import servicosRoutes from "./routes/servicosRoutes.js";
+import profissionaisRoutes from "./routes/profissionaisRoutes.js";
+import portfolioRoutes from "./routes/portfolioRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,6 +36,9 @@ app.use("/admin/api/dashboard", dashboardRoutes);
 app.use("/admin/api/upload", uploadRoutes);
 app.use("/admin/api/faq", faqRoutes);
 app.use("/admin/api/agendamentos", agendamentosAdminRoutes);
+app.use("/admin/api/servicos", servicosRoutes);
+app.use("/admin/api/profissionais", profissionaisRoutes);
+app.use("/admin/api/portfolio", portfolioRoutes);
 
 app.get("/api", (req, res) => {
     res.json({ status: "Salonnia App online 🚀" });

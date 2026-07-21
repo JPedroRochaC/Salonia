@@ -1,96 +1,69 @@
 /* ============================================================
-   RESPONSIVIDADE — painel admin
-   Carregar DEPOIS do style.css (esse aqui só ajusta/sobrescreve).
+   RESPONSIVIDADE — Salonia painel admin
+   Carregar DEPOIS do style.css.
+   Estratégia:
+   - Desktop: sidebar fixa à esquerda (padrão do style.css).
+   - Mobile/tablet: cabeçalho no topo com hambúrguer;
+     sidebar vira drawer que desliza da esquerda.
    ============================================================ */
 
-html, body {
-  overflow-x: hidden;
-}
+html, body { overflow-x: hidden; }
 
-/* ===== TABLET / NOTEBOOK PEQUENO (até 880px) ===== */
-@media (max-width: 880px) {
+/* ===== TABLET / NOTEBOOK PEQUENO (até 1024px) ===== */
+@media (max-width: 1024px) {
   .conteudo {
-    padding: 28px 24px;
-    max-width: 100%;
+    padding: 32px 32px 48px;
   }
 }
 
-/* ===== CELULAR (até 640px) ===== */
-@media (max-width: 640px) {
-  /* menu lateral vira barra de cima, com os itens em fileira rolável */
+/* ===== MOBILE (até 820px): sidebar vira drawer ===== */
+@media (max-width: 820px) {
+  :root { --sidebar-w: 280px; }
+
   .painel {
     flex-direction: column;
   }
 
+  .painel-header { display: flex; }
+
   .sidebar {
-    width: 100%;
-    flex-direction: row;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100dvh;
+    width: var(--sidebar-w);
+    max-width: 86vw;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.4);
+    padding: 22px 16px 20px;
+  }
+
+  .sidebar-close {
+    display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    justify-content: center;
   }
 
-  .sidebar-topo {
-    flex-shrink: 0;
-    border-bottom: none;
-    padding: 0 10px 0 0;
-    margin-bottom: 0;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  .painel.sidebar-aberta .sidebar {
+    transform: translateX(0);
   }
 
-  .sidebar-topo strong {
-    font-size: 0.82rem;
-    white-space: nowrap;
-  }
-
-  .sidebar-nav {
-    flex-direction: row;
-    flex: none;
-    gap: 4px;
-  }
-
-  .nav-item {
-    white-space: nowrap;
-    padding: 8px 12px;
-    font-size: 0.82rem;
-  }
-
-  .nav-item-bloqueado .badge-em-breve {
-    display: none; /* economiza espaço na barra horizontal */
-  }
-
-  .sidebar-logout {
-    flex-shrink: 0;
-    margin-top: 0;
-    padding: 8px 12px;
-    font-size: 0.8rem;
-    white-space: nowrap;
-  }
-
-  /* conteúdo */
   .conteudo {
-    padding: 20px 16px;
+    padding: 22px 20px 40px;
+    max-width: 100%;
+    width: 100%;
   }
 
-  .conteudo h2 {
-    font-size: 1.2rem;
-  }
+  .conteudo h2 { font-size: 1.4rem; }
+  .conteudo-sub { margin-bottom: 22px; font-size: 0.92rem; }
 
-  /* cards do dashboard: 2 por linha em vez de espremer 4 */
   .cards-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 12px;
   }
-
-  .card-stat {
-    padding: 14px;
-  }
-
-  .card-stat strong {
-    font-size: 1.15rem;
-  }
+  .card-stat { padding: 16px 16px; }
+  .card-stat strong { font-size: 1.35rem; }
 
   .proximo-item {
     flex-direction: column;
@@ -98,78 +71,96 @@ html, body {
     gap: 6px;
   }
 
-  /* formulário de personalização ocupa a largura toda */
-  .form-config {
-    max-width: 100%;
-  }
+  .form-config { max-width: 100%; }
+  /* fieldset NÃO tem override de padding aqui de propósito — o padding
+     dele (definido em style.css) já reserva o espaço fixo pro <legend>
+     absoluto. Ter uma segunda regra de padding só pra mobile é o que
+     causava a sobreposição; sem ela, é impossível descasar. */
 
   .cores-linha,
-  .horas-linha {
+  .horas-linha { flex-direction: column; gap: 14px; }
+
+  .logo-upload-linha { flex-direction: column; align-items: flex-start; }
+
+  .linha-horario-dia {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+  .linha-horario-dia input[type="time"] { width: 100%; }
+
+  /* FAQ empilhado */
+  .faq-item {
     flex-direction: column;
     gap: 12px;
   }
-
-  .logo-upload-linha {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  /* tabela de horário por dia: empilha em vez de 3 colunas apertadas */
-  .linha-horario-dia {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
-  .linha-horario-dia input[type="time"] {
-    width: 100%;
-  }
-
-  /* FAQ: texto e botões empilhados */
-  .faq-item {
-    flex-direction: column;
-    gap: 10px;
-  }
-
   .faq-item-acoes {
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
+  .faq-item-acoes button { text-align: left; }
 
-  .faq-item-acoes button {
-    text-align: left;
-  }
+  .faq-form-botoes { flex-direction: column; }
+  .faq-form-botoes .btn { width: 100%; }
 
-  .faq-form-botoes {
+  /* Agendamentos empilhados */
+  .agendamento-item {
     flex-direction: column;
+    align-items: stretch;
   }
-
-  .faq-form-botoes .btn {
-    width: 100%;
+  .agendamento-lado {
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: space-between;
+    flex-wrap: wrap;
   }
+  .agendamento-acoes { justify-content: flex-start; }
 
-  /* login */
-  .login-screen {
-    padding: 16px;
+  .item-card {
+    flex-wrap: wrap;
   }
+  .item-card-acoes { width: 100%; justify-content: flex-start; }
 
-  .login-card {
-    padding: 26px 20px;
+  /* Login */
+  .login-screen { padding: 18px; }
+  .login-card { padding: 30px 24px; border-radius: 20px; }
+}
+
+/* ===== CELULAR PEQUENO (até 420px) ===== */
+@media (max-width: 420px) {
+  .conteudo { padding: 18px 16px 36px; }
+  .conteudo h2 { font-size: 1.25rem; }
+
+  .cards-grid { grid-template-columns: 1fr; }
+
+  .agendamentos-filtros { padding: 12px; }
+  .agendamentos-filtros > div { min-width: 100%; }
+
+  .btn { padding: 11px 18px; font-size: 0.9rem; }
+
+  .grid-portfolio { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .portfolio-card img { height: 120px; }
+}
+
+/* ===== DESKTOP: esconde header mobile ===== */
+@media (min-width: 821px) {
+  .painel-header { display: none !important; }
+  .sidebar-overlay { display: none !important; }
+
+  /* sidebar agora é fixed (fora do fluxo), então o conteúdo
+     precisa "abrir espaço" manualmente pra não ficar embaixo dela */
+  .conteudo {
+    margin-left: var(--sidebar-w);
   }
 }
 
-/* ===== CELULAR PEQUENO (até 380px) ===== */
-@media (max-width: 380px) {
-  .cards-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar-topo strong {
-    font-size: 0.76rem;
-  }
-
-  .nav-item {
-    padding: 7px 9px;
-    font-size: 0.78rem;
-  }
+/* ===== PREFER REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-overlay,
+  .card-stat,
+  .portfolio-card,
+  .btn,
+  .input { transition: none !important; }
 }

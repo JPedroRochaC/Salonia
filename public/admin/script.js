@@ -27,26 +27,6 @@ function formatarMoeda(valor) {
   });
 }
 
-function hexParaRgb(hex) {
-  const limpo = (hex || "").replace("#", "");
-  const normalizado =
-    limpo.length === 3
-      ? limpo.split("").map((c) => c + c).join("")
-      : limpo.padEnd(6, "0");
-  const bigint = parseInt(normalizado, 16) || 0;
-  return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
-}
-
-// mistura duas cores (peso 0 = cor1 pura, 1 = cor2 pura)
-function misturarCores(hex1, hex2, peso) {
-  const c1 = hexParaRgb(hex1);
-  const c2 = hexParaRgb(hex2);
-  const r = Math.round(c1.r + (c2.r - c1.r) * peso);
-  const g = Math.round(c1.g + (c2.g - c1.g) * peso);
-  const b = Math.round(c1.b + (c2.b - c1.b) * peso);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
 // ============================================================
 // LOGIN / SESSÃO
 // ============================================================
@@ -71,34 +51,16 @@ function mostrarPainel() {
 
   el("sidebarNomeSalao").textContent = estado.salao.nome || "Meu salão";
   el("sidebarPlano").textContent = estado.salao.plano || "";
+  el("headerNomeSalao").textContent = estado.salao.nome || "Meu salão";
   if (estado.salao.logo_url) {
     el("sidebarLogo").src = estado.salao.logo_url;
     el("sidebarLogo").hidden = false;
+    el("headerLogo").src = estado.salao.logo_url;
+    el("headerLogo").hidden = false;
   }
 
-  aplicarCoresAoVivo(estado.salao.cor_destaque, estado.salao.cor_fundo);
   carregarDashboard();
   preencherFormPersonalizacao();
-}
-
-// Aplica as cores escolhidas pela dona do salão no próprio painel — assim
-// ela vê (e o painel some junto) a mesma cor que aparece pro cliente.
-// Nada de cor fixa "solta": até o fundo escuro do menu lateral é derivado
-// da cor de destaque escolhida (só mais escura, pra manter o texto legível).
-function aplicarCoresAoVivo(corDestaque, corFundo) {
-  const accent = corDestaque || "#0e7c66";
-  const fundo = corFundo || "#f5f4f1";
-
-  document.documentElement.style.setProperty("--accent", accent);
-  document.documentElement.style.setProperty(
-    "--accent-hover",
-    misturarCores(accent, "#000000", 0.15),
-  );
-  document.documentElement.style.setProperty("--bg", fundo);
-  document.documentElement.style.setProperty(
-    "--sidebar-bg",
-    misturarCores(accent, "#000000", 0.6),
-  );
 }
 
 el("loginForm").addEventListener("submit", async (e) => {
@@ -134,6 +96,26 @@ el("btnLogout").addEventListener("click", async () => {
 });
 
 // ============================================================
+// MENU MOBILE (drawer)
+// ============================================================
+function abrirMenuMobile() {
+  el("painel").classList.add("sidebar-aberta");
+  el("sidebarOverlay").hidden = false;
+}
+
+function fecharMenuMobile() {
+  el("painel").classList.remove("sidebar-aberta");
+  el("sidebarOverlay").hidden = true;
+}
+
+el("btnAbrirMenu").addEventListener("click", abrirMenuMobile);
+el("btnFecharMenu").addEventListener("click", fecharMenuMobile);
+el("sidebarOverlay").addEventListener("click", fecharMenuMobile);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") fecharMenuMobile();
+});
+
+// ============================================================
 // NAVEGAÇÃO ENTRE ABAS
 // ============================================================
 document.querySelectorAll(".nav-item").forEach((btn) => {
@@ -152,6 +134,10 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
 
     if (aba === "faq") carregarFaq();
     if (aba === "agendamentos") carregarAgendamentos();
+    if (aba === "servicos") carregarServicosEProfissionais();
+    if (aba === "portfolio") carregarPortfolio();
+
+    fecharMenuMobile(); // no celular, trocar de aba já fecha o drawer sozinho
   });
 });
 
@@ -214,14 +200,9 @@ function preencherFormPersonalizacao() {
   el("campoLogoUrl").value = s.logo_url || "";
   atualizarPreviewLogo();
 
-  el("campoCorDestaque").value = s.cor_destaque || "#0e7c66";
-  el("campoCorFundo").value = s.cor_fundo || "#ffaaaa";
-
   const redes = s.redes_sociais || {};
   el("campoInstagram").value = redes.instagram || "";
   el("campoWhatsappRedes").value = redes.whatsapp || "";
-
-  montarTabelaHorarios(s);
 
   el("campoExigeSinal").checked = !!s.exige_sinal;
   el("campoValorSinal").value = s.valor_sinal ?? "";
@@ -229,70 +210,6 @@ function preencherFormPersonalizacao() {
   atualizarBlocoSinal();
 
   el("campoAtivo").checked = s.ativo !== false;
-}
-
-// ---- Tabela de horário por dia ----
-function montarTabelaHorarios(salao) {
-  const porDia = salao.horarios_excecao && typeof salao.horarios_excecao === "object"
-    ? salao.horarios_excecao
-    : {};
-
-  // valores antigos, usados só como sugestão inicial pra quem ainda não
-  // configurou nada no modelo novo
-  const abAntigo = (salao.horario_abertura || "09:00").slice(0, 5);
-  const feAntigo = (salao.horario_fechamento || "19:00").slice(0, 5);
-  const diasAntigos = new Set(
-    Array.isArray(salao.dias_funcionamento) ? salao.dias_funcionamento.map(Number) : [1, 2, 3, 4, 5],
-  );
-
-  const container = el("tabelaHorarios");
-  container.innerHTML = "";
-
-  for (let d = 0; d <= 6; d++) {
-    const config = porDia[d] ?? porDia[String(d)];
-    const aberto = config ? config.aberto !== false : diasAntigos.has(d);
-    const abertura = (config?.abertura || abAntigo).slice(0, 5);
-    const fechamento = (config?.fechamento || feAntigo).slice(0, 5);
-
-    const linha = document.createElement("div");
-    linha.className = "linha-horario-dia" + (aberto ? "" : " dia-fechado");
-    linha.dataset.dia = d;
-
-    linha.innerHTML = `
-      <label class="dia-toggle">
-        <input type="checkbox" class="dia-aberto" ${aberto ? "checked" : ""} />
-        ${DIAS_ABREV[d]}
-      </label>
-      <input type="time" class="input dia-abertura" value="${abertura}" ${aberto ? "" : "disabled"} />
-      <input type="time" class="input dia-fechamento" value="${fechamento}" ${aberto ? "" : "disabled"} />
-    `;
-
-    const checkbox = linha.querySelector(".dia-aberto");
-    checkbox.addEventListener("change", () => {
-      const ligado = checkbox.checked;
-      linha.classList.toggle("dia-fechado", !ligado);
-      linha.querySelector(".dia-abertura").disabled = !ligado;
-      linha.querySelector(".dia-fechamento").disabled = !ligado;
-    });
-
-    container.appendChild(linha);
-  }
-}
-
-function lerTabelaHorarios() {
-  const porDia = {};
-  document.querySelectorAll(".linha-horario-dia").forEach((linha) => {
-    const dia = linha.dataset.dia;
-    const aberto = linha.querySelector(".dia-aberto").checked;
-    porDia[dia] = aberto
-      ? {
-          aberto: true,
-          abertura: linha.querySelector(".dia-abertura").value,
-          fechamento: linha.querySelector(".dia-fechamento").value,
-        }
-      : { aberto: false };
-  });
-  return porDia;
 }
 
 // ---- Logo (upload de arquivo) ----
@@ -333,20 +250,12 @@ el("campoLogoArquivo").addEventListener("change", async () => {
   }
 });
 
-// ---- Sinal / cores / disponibilidade ----
+// ---- Sinal / disponibilidade ----
 function atualizarBlocoSinal() {
   el("blocoSinal").hidden = !el("campoExigeSinal").checked;
 }
 
 el("campoExigeSinal").addEventListener("change", atualizarBlocoSinal);
-
-// preview ao vivo: já aplica a cor no painel assim que a dona mexe no seletor
-el("campoCorDestaque").addEventListener("input", () => {
-  aplicarCoresAoVivo(el("campoCorDestaque").value, el("campoCorFundo").value);
-});
-el("campoCorFundo").addEventListener("input", () => {
-  aplicarCoresAoVivo(el("campoCorDestaque").value, el("campoCorFundo").value);
-});
 
 el("formPersonalizacao").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -361,13 +270,10 @@ el("formPersonalizacao").addEventListener("submit", async (e) => {
     telefone: el("campoTelefone").value.trim(),
     endereco: el("campoEndereco").value.trim(),
     logo_url: el("campoLogoUrl").value.trim() || null,
-    cor_destaque: el("campoCorDestaque").value,
-    cor_fundo: el("campoCorFundo").value,
     redes_sociais: {
       instagram: el("campoInstagram").value.trim(),
       whatsapp: el("campoWhatsappRedes").value.trim(),
     },
-    horarios_excecao: lerTabelaHorarios(),
     exige_sinal: el("campoExigeSinal").checked,
     valor_sinal: el("campoValorSinal").value
       ? Number(el("campoValorSinal").value)
@@ -660,6 +566,582 @@ async function mudarStatusAgendamento(id, novoStatus) {
   } catch (err) {
     alert(err.message);
   }
+}
+
+// ============================================================
+// SUB-ABAS (Serviços / Profissionais)
+// ============================================================
+document.querySelectorAll(".sub-aba-item").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".sub-aba-item").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    const sub = btn.dataset.subAba;
+    document
+      .querySelectorAll(".sub-aba")
+      .forEach((secao) => (secao.hidden = secao.dataset.subAbaConteudo !== sub));
+
+    if (sub === "horariosDisponiveisSub") carregarSeletorHorarios();
+  });
+});
+
+let estadoServicos = []; // guardado em memória pra montar os checkboxes dos profissionais
+
+async function carregarServicosEProfissionais() {
+  await carregarServicos();
+  await carregarProfissionais();
+  montarCheckboxesServicos();
+}
+
+// ---- SERVIÇOS ----
+async function carregarServicos() {
+  const lista = el("listaServicosAdmin");
+  lista.innerHTML = "";
+
+  try {
+    const { servicos } = await chamarApi("/admin/api/servicos");
+    estadoServicos = servicos || [];
+
+    if (estadoServicos.length === 0) {
+      el("servicosVazio").hidden = false;
+    } else {
+      el("servicosVazio").hidden = true;
+      estadoServicos.forEach((s) => {
+        const item = document.createElement("div");
+        item.className = "item-card" + (s.ativo ? "" : " item-inativo");
+        item.innerHTML = `
+          <div class="item-card-texto">
+            <strong>${escaparHtml(s.nome)}</strong>
+            <span>${s.duracao_minutos} min · ${formatarMoeda(s.preco)}</span>
+          </div>
+          <div class="item-card-acoes">
+            <button class="btn-mini" data-acao="editar">Editar</button>
+            <button class="btn-mini" data-acao="toggle">${s.ativo ? "Desativar" : "Ativar"}</button>
+            <button class="btn-mini btn-mini-perigo" data-acao="excluir">Excluir</button>
+          </div>
+        `;
+        item.querySelector('[data-acao="editar"]').addEventListener("click", () => editarServico(s));
+        item.querySelector('[data-acao="toggle"]').addEventListener("click", () => alternarAtivoServico(s));
+        item.querySelector('[data-acao="excluir"]').addEventListener("click", () => excluirServico(s.id));
+        lista.appendChild(item);
+      });
+    }
+  } catch (err) {
+    console.error("Erro ao carregar serviços:", err);
+  }
+}
+
+function editarServico(s) {
+  el("servicoEditandoId").value = s.id;
+  el("servicoNome").value = s.nome;
+  el("servicoDuracao").value = s.duracao_minutos;
+  el("servicoPreco").value = s.preco;
+  el("btnSalvarServico").textContent = "Salvar edição";
+  el("btnCancelarEdicaoServico").hidden = false;
+}
+
+function cancelarEdicaoServico() {
+  el("servicoEditandoId").value = "";
+  el("formServico").reset();
+  el("btnSalvarServico").textContent = "Adicionar serviço";
+  el("btnCancelarEdicaoServico").hidden = true;
+}
+el("btnCancelarEdicaoServico").addEventListener("click", cancelarEdicaoServico);
+
+async function alternarAtivoServico(s) {
+  try {
+    await chamarApi(`/admin/api/servicos/${s.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ ativo: !s.ativo }),
+    });
+    carregarServicos();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function excluirServico(id) {
+  if (!confirm("Excluir esse serviço? Não dá pra desfazer.")) return;
+  try {
+    await chamarApi(`/admin/api/servicos/${id}`, { method: "DELETE" });
+    carregarServicos();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+el("formServico").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = el("btnSalvarServico");
+  const idEditando = el("servicoEditandoId").value;
+  btn.disabled = true;
+  el("servicoErro").hidden = true;
+
+  const corpo = {
+    nome: el("servicoNome").value.trim(),
+    duracao_minutos: Number(el("servicoDuracao").value),
+    preco: Number(el("servicoPreco").value),
+  };
+
+  try {
+    if (idEditando) {
+      await chamarApi(`/admin/api/servicos/${idEditando}`, {
+        method: "PUT",
+        body: JSON.stringify(corpo),
+      });
+    } else {
+      await chamarApi("/admin/api/servicos", {
+        method: "POST",
+        body: JSON.stringify(corpo),
+      });
+    }
+    cancelarEdicaoServico();
+    carregarServicos();
+  } catch (err) {
+    el("servicoErro").textContent = err.message;
+    el("servicoErro").hidden = false;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---- PROFISSIONAIS ----
+async function carregarProfissionais() {
+  const lista = el("listaProfissionaisAdmin");
+  lista.innerHTML = "";
+
+  try {
+    const { profissionais } = await chamarApi("/admin/api/profissionais");
+
+    if (!profissionais || profissionais.length === 0) {
+      el("profissionaisVazio").hidden = false;
+    } else {
+      el("profissionaisVazio").hidden = true;
+      profissionais.forEach((p) => {
+        const nomesServicos = estadoServicos
+          .filter((s) => p.servico_ids.includes(s.id))
+          .map((s) => s.nome)
+          .join(", ") || "Nenhum serviço vinculado";
+
+        const item = document.createElement("div");
+        item.className = "item-card" + (p.ativo ? "" : " item-inativo");
+        item.innerHTML = `
+          <img class="item-card-foto" src="${p.foto_url || ""}" alt="" onerror="this.style.visibility='hidden'" />
+          <div class="item-card-texto">
+            <strong>${escaparHtml(p.nome)}</strong>
+            <span>${escaparHtml(nomesServicos)}</span>
+          </div>
+          <div class="item-card-acoes">
+            <button class="btn-mini" data-acao="editar">Editar</button>
+            <button class="btn-mini" data-acao="toggle">${p.ativo ? "Desativar" : "Ativar"}</button>
+            <button class="btn-mini btn-mini-perigo" data-acao="excluir">Excluir</button>
+          </div>
+        `;
+        item.querySelector('[data-acao="editar"]').addEventListener("click", () => editarProfissional(p));
+        item.querySelector('[data-acao="toggle"]').addEventListener("click", () => alternarAtivoProfissional(p));
+        item.querySelector('[data-acao="excluir"]').addEventListener("click", () => excluirProfissional(p.id));
+        lista.appendChild(item);
+      });
+    }
+  } catch (err) {
+    console.error("Erro ao carregar profissionais:", err);
+  }
+}
+
+function montarCheckboxesServicos(idsMarcados = []) {
+  const container = el("profissionalServicosCheckboxes");
+  container.innerHTML = "";
+  estadoServicos.forEach((s) => {
+    const label = document.createElement("label");
+    label.innerHTML = `
+      <input type="checkbox" value="${s.id}" ${idsMarcados.includes(s.id) ? "checked" : ""} />
+      ${escaparHtml(s.nome)}
+    `;
+    container.appendChild(label);
+  });
+}
+
+function editarProfissional(p) {
+  el("profissionalEditandoId").value = p.id;
+  el("profissionalNome").value = p.nome;
+  el("profissionalFotoUrl").value = p.foto_url || "";
+  if (p.foto_url) {
+    el("previewFotoProfissional").src = p.foto_url;
+    el("previewFotoProfissional").hidden = false;
+  } else {
+    el("previewFotoProfissional").hidden = true;
+  }
+  montarCheckboxesServicos(p.servico_ids);
+  el("btnSalvarProfissional").textContent = "Salvar edição";
+  el("btnCancelarEdicaoProfissional").hidden = false;
+}
+
+function cancelarEdicaoProfissional() {
+  el("profissionalEditandoId").value = "";
+  el("formProfissional").reset();
+  el("profissionalFotoUrl").value = "";
+  el("previewFotoProfissional").hidden = true;
+  el("profissionalFotoStatus").textContent = "";
+  montarCheckboxesServicos([]);
+  el("btnSalvarProfissional").textContent = "Adicionar profissional";
+  el("btnCancelarEdicaoProfissional").hidden = true;
+}
+el("btnCancelarEdicaoProfissional").addEventListener("click", cancelarEdicaoProfissional);
+
+el("profissionalFotoArquivo").addEventListener("change", async () => {
+  const arquivo = el("profissionalFotoArquivo").files[0];
+  if (!arquivo) return;
+  const status = el("profissionalFotoStatus");
+  status.textContent = "Enviando...";
+
+  const formData = new FormData();
+  formData.append("arquivo", arquivo);
+
+  try {
+    const resp = await fetch("/admin/api/upload/imagem?pasta=profissionais", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const dados = await resp.json();
+    if (!resp.ok) throw new Error(dados.erro || "Erro ao enviar imagem.");
+
+    el("profissionalFotoUrl").value = dados.url;
+    el("previewFotoProfissional").src = dados.url;
+    el("previewFotoProfissional").hidden = false;
+    status.textContent = "Foto enviada.";
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+
+async function alternarAtivoProfissional(p) {
+  try {
+    await chamarApi(`/admin/api/profissionais/${p.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ ativo: !p.ativo }),
+    });
+    carregarProfissionais();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function excluirProfissional(id) {
+  if (!confirm("Excluir esse profissional? Não dá pra desfazer.")) return;
+  try {
+    await chamarApi(`/admin/api/profissionais/${id}`, { method: "DELETE" });
+    carregarProfissionais();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+el("formProfissional").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = el("btnSalvarProfissional");
+  const idEditando = el("profissionalEditandoId").value;
+  btn.disabled = true;
+  el("profissionalErro").hidden = true;
+
+  const servicoIdsMarcados = [
+    ...document.querySelectorAll("#profissionalServicosCheckboxes input:checked"),
+  ].map((cb) => cb.value);
+
+  const corpo = {
+    nome: el("profissionalNome").value.trim(),
+    foto_url: el("profissionalFotoUrl").value || null,
+  };
+
+  try {
+    let profissionalId = idEditando;
+
+    if (idEditando) {
+      await chamarApi(`/admin/api/profissionais/${idEditando}`, {
+        method: "PUT",
+        body: JSON.stringify(corpo),
+      });
+    } else {
+      const { profissional } = await chamarApi("/admin/api/profissionais", {
+        method: "POST",
+        body: JSON.stringify(corpo),
+      });
+      profissionalId = profissional.id;
+    }
+
+    await chamarApi(`/admin/api/profissionais/${profissionalId}/servicos`, {
+      method: "PUT",
+      body: JSON.stringify({ servico_ids: servicoIdsMarcados }),
+    });
+
+    cancelarEdicaoProfissional();
+    carregarProfissionais();
+  } catch (err) {
+    el("profissionalErro").textContent = err.message;
+    el("profissionalErro").hidden = false;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ============================================================
+// PORTFÓLIO
+// ============================================================
+let portfolioArquivoUrlPendente = null;
+
+el("portfolioFotoArquivo").addEventListener("change", async () => {
+  const arquivo = el("portfolioFotoArquivo").files[0];
+  if (!arquivo) return;
+  const status = el("portfolioStatus");
+  status.textContent = "Enviando...";
+
+  const formData = new FormData();
+  formData.append("arquivo", arquivo);
+
+  try {
+    const resp = await fetch("/admin/api/upload/imagem?pasta=portfolio", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const dados = await resp.json();
+    if (!resp.ok) throw new Error(dados.erro || "Erro ao enviar imagem.");
+
+    portfolioArquivoUrlPendente = dados.url;
+
+    await chamarApi("/admin/api/portfolio", {
+      method: "POST",
+      body: JSON.stringify({
+        imagem_url: dados.url,
+        descricao: el("portfolioDescricao").value.trim(),
+      }),
+    });
+
+    status.textContent = "Foto adicionada.";
+    el("portfolioDescricao").value = "";
+    el("portfolioFotoArquivo").value = "";
+    carregarPortfolio();
+  } catch (err) {
+    status.textContent = err.message;
+  }
+});
+
+async function carregarPortfolio() {
+  const grid = el("gridPortfolio");
+  grid.innerHTML = "";
+
+  try {
+    const { fotos } = await chamarApi("/admin/api/portfolio");
+
+    if (!fotos || fotos.length === 0) {
+      el("portfolioVazioAdmin").hidden = false;
+      return;
+    }
+    el("portfolioVazioAdmin").hidden = true;
+
+    fotos.forEach((foto, indice) => {
+      const card = document.createElement("div");
+      card.className = "portfolio-card";
+      card.innerHTML = `
+        <img src="${foto.imagem_url}" alt="" />
+        <div class="portfolio-card-corpo">
+          <input type="text" class="input" value="${escaparAtributoHtml(foto.descricao || "")}" placeholder="Descrição" />
+          <div class="portfolio-card-acoes">
+            <button data-acao="subir" ${indice === 0 ? "disabled" : ""}>▲</button>
+            <button data-acao="descer" ${indice === fotos.length - 1 ? "disabled" : ""}>▼</button>
+            <button data-acao="excluir">Excluir</button>
+          </div>
+        </div>
+      `;
+
+      const inputDescricao = card.querySelector("input");
+      inputDescricao.addEventListener("change", () => salvarDescricaoPortfolio(foto.id, inputDescricao.value));
+      card.querySelector('[data-acao="subir"]').addEventListener("click", () => moverPortfolio(foto.id, "cima"));
+      card.querySelector('[data-acao="descer"]').addEventListener("click", () => moverPortfolio(foto.id, "baixo"));
+      card.querySelector('[data-acao="excluir"]').addEventListener("click", () => excluirPortfolio(foto.id));
+
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar portfólio:", err);
+  }
+}
+
+function escaparAtributoHtml(texto) {
+  return escaparHtml(texto).replace(/"/g, "&quot;");
+}
+
+async function salvarDescricaoPortfolio(id, descricao) {
+  try {
+    await chamarApi(`/admin/api/portfolio/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ descricao }),
+    });
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function moverPortfolio(id, direcao) {
+  try {
+    await chamarApi(`/admin/api/portfolio/${id}/mover`, {
+      method: "POST",
+      body: JSON.stringify({ direcao }),
+    });
+    carregarPortfolio();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function excluirPortfolio(id) {
+  if (!confirm("Excluir essa foto? Não dá pra desfazer.")) return;
+  try {
+    await chamarApi(`/admin/api/portfolio/${id}`, { method: "DELETE" });
+    carregarPortfolio();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// ============================================================
+// HORÁRIOS DISPONÍVEIS (por profissional)
+// ============================================================
+let profissionaisParaHorarios = [];
+
+async function carregarSeletorHorarios() {
+  const select = el("horarioProfissionalSelect");
+
+  try {
+    const { profissionais } = await chamarApi("/admin/api/profissionais");
+    profissionaisParaHorarios = profissionais || [];
+
+    if (profissionaisParaHorarios.length === 0) {
+      select.innerHTML = "";
+      el("gradeHorarios").innerHTML = "";
+      el("gradeHorariosVazio").hidden = false;
+      return;
+    }
+    el("gradeHorariosVazio").hidden = true;
+
+    select.innerHTML = profissionaisParaHorarios
+      .map((p) => `<option value="${p.id}">${escaparHtml(p.nome)}</option>`)
+      .join("");
+
+    montarGradeHorarios(profissionaisParaHorarios[0]);
+  } catch (err) {
+    console.error("Erro ao carregar profissionais pra horários:", err);
+  }
+}
+
+el("horarioProfissionalSelect").addEventListener("change", () => {
+  const profissional = profissionaisParaHorarios.find(
+    (p) => p.id === el("horarioProfissionalSelect").value,
+  );
+  if (profissional) montarGradeHorarios(profissional);
+});
+
+function montarGradeHorarios(profissional) {
+  const grade = el("gradeHorarios");
+  grade.innerHTML = "";
+
+  const horarios = profissional.horarios_disponiveis || {};
+
+  for (let d = 0; d <= 6; d++) {
+    const lista = horarios[d] ?? horarios[String(d)] ?? [];
+
+    const linha = document.createElement("div");
+    linha.className = "linha-grade-dia";
+    linha.dataset.dia = d;
+
+    linha.innerHTML = `
+      <div class="linha-grade-dia-topo">
+        <span class="linha-grade-dia-nome">${DIAS_ABREV[d]}</span>
+        <div class="linha-grade-dia-add">
+          <input type="time" class="input input-novo-horario" />
+          <button type="button" data-acao="adicionar">+ Adicionar</button>
+        </div>
+      </div>
+      <div class="chips-horarios"></div>
+    `;
+
+    renderizarChipsHorario(linha, lista, profissional.id, d);
+
+    linha.querySelector('[data-acao="adicionar"]').addEventListener("click", () => {
+      const input = linha.querySelector(".input-novo-horario");
+      if (!input.value) return;
+      adicionarHorario(profissional.id, d, input.value);
+      input.value = "";
+    });
+
+    grade.appendChild(linha);
+  }
+}
+
+function renderizarChipsHorario(linha, lista, profissionalId, dia) {
+  const container = linha.querySelector(".chips-horarios");
+  container.innerHTML = "";
+
+  if (!lista || lista.length === 0) {
+    container.innerHTML = '<span class="chips-horarios-vazio">Nenhum horário — não atende nesse dia</span>';
+    return;
+  }
+
+  [...lista].sort().forEach((hora) => {
+    const chip = document.createElement("span");
+    chip.className = "chip-horario";
+    chip.innerHTML = `${hora} <button type="button" aria-label="Remover">×</button>`;
+    chip.querySelector("button").addEventListener("click", () => {
+      removerHorario(profissionalId, dia, hora);
+    });
+    container.appendChild(chip);
+  });
+}
+
+function pegarProfissionalAtual() {
+  const id = el("horarioProfissionalSelect").value;
+  return profissionaisParaHorarios.find((p) => p.id === id);
+}
+
+async function salvarHorariosProfissional(profissional) {
+  try {
+    await chamarApi(`/admin/api/profissionais/${profissional.id}/horarios`, {
+      method: "PUT",
+      body: JSON.stringify({ horarios_disponiveis: profissional.horarios_disponiveis }),
+    });
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function adicionarHorario(profissionalId, dia, hora) {
+  const profissional = pegarProfissionalAtual();
+  if (!profissional || profissional.id !== profissionalId) return;
+
+  const horarios = profissional.horarios_disponiveis || {};
+  const listaAtual = horarios[dia] ?? horarios[String(dia)] ?? [];
+
+  if (!listaAtual.includes(hora)) {
+    horarios[dia] = [...listaAtual, hora].sort();
+    profissional.horarios_disponiveis = horarios;
+    salvarHorariosProfissional(profissional);
+  }
+
+  montarGradeHorarios(profissional);
+}
+
+function removerHorario(profissionalId, dia, hora) {
+  const profissional = pegarProfissionalAtual();
+  if (!profissional || profissional.id !== profissionalId) return;
+
+  const horarios = profissional.horarios_disponiveis || {};
+  const listaAtual = horarios[dia] ?? horarios[String(dia)] ?? [];
+
+  horarios[dia] = listaAtual.filter((h) => h !== hora);
+  profissional.horarios_disponiveis = horarios;
+  salvarHorariosProfissional(profissional);
+
+  montarGradeHorarios(profissional);
 }
 
 // ============================================================
