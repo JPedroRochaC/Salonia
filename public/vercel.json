@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/agendamento", "destination": "https://salonia.onrender.com/agendamento" },
+    { "source": "/admin/api/:path*", "destination": "https://salonia.onrender.com/admin/api/:path*" },
+    { "source": "/admin/auth/:path*", "destination": "https://salonia.onrender.com/admin/auth/:path*" },
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/:slug/agendar", "destination": "/salao/index.html" },
+    { "source": "/:slug/portfolio", "destination": "/salao/index.html" },
+    { "source": "/:slug", "destination": "/salao/index.html" }
+  ]
+}
