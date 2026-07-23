@@ -117,7 +117,7 @@ h3 {
   justify-content: space-between;
   gap: 14px;
   padding: 14px 20px;
-  background: var(--brown);
+  background: #fff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   position: sticky;
   top: 0;
@@ -140,7 +140,7 @@ h3 {
 }
 .menu-btn span {
   height: 2px;
-  background: #fff;
+  background: var(--accent);
   border-radius: 2px;
 }
 
@@ -166,7 +166,7 @@ h3 {
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 700;
   font-size: 1.1rem;
-  color: #fff;
+  color: var(--accent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -184,17 +184,20 @@ h3 {
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 0;
   width: 300px;
   max-width: 85vw;
+  max-height: 100vh;
+  height: fit-content;
   background: var(--cream);
   box-shadow: var(--shadow-lg);
   z-index: 100;
   padding: 24px 20px;
   overflow-y: auto;
+  border-radius: 0 0 0 var(--radius-md);
   transform: translateX(100%);
   transition: transform 0.25s ease;
 }
+
 .menu-drawer.aberto {
   transform: translateX(0);
 }

@@ -87,8 +87,22 @@ async function atualizarBotaoNotificacoes() {
     return;
   }
 
+  const ehiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const ehStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+
+  if (ehiOS && !ehStandalone) {
+    botao.textContent = "🔔 Notificações (PWA necessário)";
+    botao.disabled = true;
+    const alertIos = el("pwaIosAlert");
+    if (alertIos) alertIos.hidden = false;
+    return;
+  } else {
+    const alertIos = el("pwaIosAlert");
+    if (alertIos) alertIos.hidden = true;
+  }
+
   if (Notification.permission === "denied") {
-    botao.textContent = "🔕 Notificações bloqueadas no navegador";
+    botao.textContent = "🔕 Notificações bloqueadas";
     botao.disabled = true;
     return;
   }
@@ -96,9 +110,16 @@ async function atualizarBotaoNotificacoes() {
   const registro = await navigator.serviceWorker.ready;
   const inscricaoAtual = await registro.pushManager.getSubscription();
 
-  botao.textContent = inscricaoAtual
-    ? "🔔 Notificações ativadas"
-    : "🔔 Ativar notificações";
+  if (inscricaoAtual) {
+    botao.textContent = "🔔 Notificações ativadas";
+    // Sincroniza em segundo plano pra garantir que o banco tem a inscrição atualizada
+    chamarApi("/admin/api/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify(inscricaoAtual.toJSON()),
+    }).catch((err) => console.error("Erro ao sincronizar inscrição push:", err));
+  } else {
+    botao.textContent = "🔔 Ativar notificações";
+  }
 }
 
 async function ativarNotificacoes() {
@@ -111,13 +132,32 @@ async function ativarNotificacoes() {
     }
 
     const registro = await navigator.serviceWorker.ready;
+    const { publicKey } = await chamarApi("/admin/api/push/vapid-public-key");
+    const serverKey = urlBase64ToUint8Array(publicKey);
 
     let inscricao = await registro.pushManager.getSubscription();
+    if (inscricao) {
+      // Verifica se a chave cadastrada no navegador bate com a do servidor atual
+      const inscChave = inscricao.options.applicationServerKey;
+      let chaveIgual = false;
+      if (inscChave) {
+        const arrInsc = new Uint8Array(inscChave);
+        if (arrInsc.length === serverKey.length) {
+          chaveIgual = arrInsc.every((v, i) => v === serverKey[i]);
+        }
+      }
+
+      if (!chaveIgual) {
+        console.log("Reinscrito push pois a chave pública VAPID mudou.");
+        await inscricao.unsubscribe();
+        inscricao = null;
+      }
+    }
+
     if (!inscricao) {
-      const { publicKey } = await chamarApi("/admin/api/push/vapid-public-key");
       inscricao = await registro.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: serverKey,
       });
     }
 
@@ -129,8 +169,6 @@ async function ativarNotificacoes() {
     if (botao) botao.textContent = "🔔 Notificações ativadas";
   } catch (err) {
     console.error("Erro ao ativar notificações:", err);
-    // TEMPORÁRIO PRA DIAGNÓSTICO — depois de descobrir a causa, reverte
-    // essa linha pra mensagem genérica de novo.
     alert("Erro ao ativar notificações: " + (err?.message || err));
   }
 }
@@ -810,8 +848,9 @@ function renderizarCalendarioSemana(dias, eventosPorDia) {
       const esquerda = largura * coluna;
       const hora = inicioEvento.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
+      const ehCurto = ag.duracao_minutos < 40;
       eventosHtml += `
-        <div class="cal-evento cal-evento-${ag.status}"
+        <div class="cal-evento cal-evento-${ag.status}${ehCurto ? " cal-evento--curto" : ""}"
              style="top:${top}px; height:${altura}px; left:calc(${esquerda}% + 2px); width:calc(${largura}% - 4px);"
              data-id="${ag.id}">
           <span class="cal-evento-hora">${hora}</span>
@@ -888,26 +927,70 @@ function renderizarChipsDias(dias, hoje) {
 // Distribui, lado a lado, agendamentos que se sobrepõem no mesmo dia
 // (mesma ideia do Google Calendar quando há dois horários conflitantes).
 function calcularLayoutEventos(agendamentos) {
+  if (agendamentos.length === 0) return [];
+
+  // 1. Ordenar por horário de início
   const ordenados = [...agendamentos].sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
 
-  const finalDasColunas = []; // horário (ms) em que cada coluna fica livre de novo
-  const posicionados = ordenados.map((ag) => {
+  // 2. Agrupar em clusters de sobreposição contígua
+  const clusters = [];
+  let clusterAtual = [];
+  let fimMaxCluster = 0;
+
+  ordenados.forEach((ag) => {
     const inicio = new Date(ag.data_hora).getTime();
     const fim = inicio + ag.duracao_minutos * 60000;
 
-    let coluna = finalDasColunas.findIndex((fimColuna) => fimColuna <= inicio);
-    if (coluna === -1) {
-      coluna = finalDasColunas.length;
-      finalDasColunas.push(fim);
+    if (clusterAtual.length === 0) {
+      clusterAtual.push(ag);
+      fimMaxCluster = fim;
+    } else if (inicio < fimMaxCluster) {
+      // Sobrepõe com o cluster atual
+      clusterAtual.push(ag);
+      fimMaxCluster = Math.max(fimMaxCluster, fim);
     } else {
-      finalDasColunas[coluna] = fim;
+      // Não sobrepõe, fecha o cluster atual e cria outro
+      clusters.push(clusterAtual);
+      clusterAtual = [ag];
+      fimMaxCluster = fim;
     }
+  });
+  if (clusterAtual.length > 0) {
+    clusters.push(clusterAtual);
+  }
 
-    return { ag, coluna };
+  // 3. Para cada cluster, distribuir em colunas
+  const resultado = [];
+  clusters.forEach((cluster) => {
+    const colunas = []; // Array de horários de fim dos eventos em cada coluna
+
+    const posicionadosNoCluster = cluster.map((ag) => {
+      const inicio = new Date(ag.data_hora).getTime();
+      const fim = inicio + ag.duracao_minutos * 60000;
+
+      // Achar a primeira coluna livre
+      let colIdx = colunas.findIndex((fimCol) => fimCol <= inicio);
+      if (colIdx === -1) {
+        colIdx = colunas.length;
+        colunas.push(fim);
+      } else {
+        colunas[colIdx] = fim;
+      }
+
+      return { ag, coluna: colIdx };
+    });
+
+    const totalColunas = colunas.length;
+    posicionadosNoCluster.forEach((item) => {
+      resultado.push({
+        ag: item.ag,
+        coluna: item.coluna,
+        totalColunas: totalColunas
+      });
+    });
   });
 
-  const totalColunas = Math.max(finalDasColunas.length, 1);
-  return posicionados.map((p) => ({ ...p, totalColunas }));
+  return resultado;
 }
 
 function abrirDetalheAgendamento(ag) {

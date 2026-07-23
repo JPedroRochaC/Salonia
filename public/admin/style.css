@@ -464,6 +464,17 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
   border-color: var(--border-strong);
 }
 
+.sidebar-pwa-alert {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--brand-purple);
+  background: var(--brand-blush-soft);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-top: 10px;
+  border: 1px dashed var(--brand-purple);
+}
+
 /* ===== CONTEÚDO ===== */
 .conteudo {
   flex: 1;
@@ -1045,6 +1056,23 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
 .cal-evento-hora { display: block; font-weight: 700; }
 .cal-evento-cliente { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-evento-detalhe { display: block; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cal-evento--curto {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+}
+.cal-evento--curto .cal-evento-hora,
+.cal-evento--curto .cal-evento-cliente,
+.cal-evento--curto .cal-evento-detalhe {
+  display: inline;
+  white-space: nowrap;
+}
+.cal-evento--curto .cal-evento-detalhe::before {
+  content: " · ";
+}
 
 .cal-evento-aguardando_pagamento,
 .cal-evento-aguardando_confirmacao {

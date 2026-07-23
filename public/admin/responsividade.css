@@ -130,7 +130,7 @@ html, body { overflow-x: hidden; }
   .calendario-toolbar { gap: 12px; }
   .calendario-filtro-status .input { min-width: 0; width: 100%; }
   .calendario-semana { min-width: 0; width: 100%; }
-  .calendario-semana { --cal-hora-altura: 56px; --cal-largura-gutter: 44px; }
+  .calendario-semana { --cal-hora-altura: 60px; --cal-largura-gutter: 44px; }
   .cal-cabecalho { top: var(--header-h); }
   .cal-hora-label { scroll-margin-top: calc(var(--header-h) + 60px); }
   .cal-dia-nome { font-size: 0.62rem; }
