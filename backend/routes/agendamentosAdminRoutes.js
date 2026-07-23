@@ -16,7 +16,7 @@ const STATUS_VALIDOS = [
 ];
 
 const SELECT_AGENDAMENTO =
-  "id, data_hora, duracao_minutos, valor, status, comprovante_url, criado_em, clientes(nome, telefone), servicos(nome), profissionais(nome)";
+  "id, data_hora, duracao_minutos, valor, status, comprovante_url, foto_referencia_url, criado_em, clientes(nome, telefone), servicos(nome), profissionais(nome)";
 
 router.get("/", requireAuth, async (req, res) => {
   const { data: dataFiltro, status } = req.query;

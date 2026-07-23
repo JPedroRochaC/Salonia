@@ -78,3 +78,40 @@ self.addEventListener("fetch", (evento) => {
       .catch(() => caches.match(req))
   );
 });
+
+// ============================================================
+// NOTIFICAÇÕES PUSH
+// ============================================================
+
+self.addEventListener("push", (evento) => {
+  let dados = { titulo: "Salonia", corpo: "Você tem uma novidade.", url: "/admin" };
+
+  try {
+    if (evento.data) dados = { ...dados, ...evento.data.json() };
+  } catch (err) {
+    console.error("Erro ao ler payload da notificação push:", err);
+  }
+
+  const opcoes = {
+    body: dados.corpo,
+    icon: "/admin/icons/icon-192.png",
+    badge: "/admin/icons/icon-192.png",
+    data: { url: dados.url || "/admin" },
+  };
+
+  evento.waitUntil(self.registration.showNotification(dados.titulo, opcoes));
+});
+
+self.addEventListener("notificationclick", (evento) => {
+  evento.notification.close();
+  const url = evento.notification.data?.url || "/admin";
+
+  evento.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((janelas) => {
+      // Se já tem uma aba do admin aberta, foca nela em vez de abrir outra.
+      const abaExistente = janelas.find((janela) => janela.url.includes("/admin"));
+      if (abaExistente) return abaExistente.focus();
+      return self.clients.openWindow(url);
+    }),
+  );
+});

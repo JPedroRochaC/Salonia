@@ -66,6 +66,76 @@ function formatarMoeda(valor) {
 }
 
 // ============================================================
+// NOTIFICAÇÕES PUSH
+// ============================================================
+
+// Web Push exige que a chave VAPID pública seja convertida desse jeito
+// (formato padrão, não é nada específico do Salonia).
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
+async function atualizarBotaoNotificacoes() {
+  const botao = el("btnNotificacoes");
+  if (!botao) return;
+
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    botao.hidden = true;
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    botao.textContent = "🔕 Notificações bloqueadas no navegador";
+    botao.disabled = true;
+    return;
+  }
+
+  const registro = await navigator.serviceWorker.ready;
+  const inscricaoAtual = await registro.pushManager.getSubscription();
+
+  botao.textContent = inscricaoAtual
+    ? "🔔 Notificações ativadas"
+    : "🔔 Ativar notificações";
+}
+
+async function ativarNotificacoes() {
+  const botao = el("btnNotificacoes");
+  try {
+    const permissao = await Notification.requestPermission();
+    if (permissao !== "granted") {
+      alert("Pra receber notificações, você precisa permitir no navegador.");
+      return;
+    }
+
+    const registro = await navigator.serviceWorker.ready;
+
+    let inscricao = await registro.pushManager.getSubscription();
+    if (!inscricao) {
+      const { publicKey } = await chamarApi("/admin/api/push/vapid-public-key");
+      inscricao = await registro.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    await chamarApi("/admin/api/push/subscribe", {
+      method: "POST",
+      body: JSON.stringify(inscricao.toJSON()),
+    });
+
+    if (botao) botao.textContent = "🔔 Notificações ativadas";
+  } catch (err) {
+    console.error("Erro ao ativar notificações:", err);
+    alert("Não deu pra ativar as notificações agora. Tenta de novo em instantes.");
+  }
+}
+
+el("btnNotificacoes")?.addEventListener("click", ativarNotificacoes);
+
+// ============================================================
 // LOGIN / SESSÃO
 // ============================================================
 async function verificarSessao() {
@@ -99,6 +169,7 @@ function mostrarPainel() {
 
   carregarDashboard();
   preencherFormPersonalizacao();
+  atualizarBotaoNotificacoes();
 }
 
 el("loginForm").addEventListener("submit", async (e) => {
@@ -187,7 +258,7 @@ async function carregarDashboard() {
     const dados = await chamarApi("/admin/api/dashboard");
 
     el("statFaturamento").textContent = formatarMoeda(dados.faturamentoMes);
-    el("statConfirmados").textContent = dados.confirmadosMes;
+    el("statHoje").textContent = dados.agendamentosHoje;
     el("statTotal").textContent = dados.totalAgendamentosMes;
     el("statTicket").textContent = formatarMoeda(dados.ticketMedio);
 

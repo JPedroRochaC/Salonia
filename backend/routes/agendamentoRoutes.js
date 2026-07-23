@@ -1,5 +1,6 @@
 import express from "express";
 import { supabase } from "../config/supabase.js";
+import { notificarSalao } from "../lib/pushNotificacoes.js";
 
 const router = express.Router();
 
@@ -71,6 +72,14 @@ router.post("/", async (req, res) => {
     if (!resultado?.ok) {
       return res.status(400).json({ erro: resultado?.erro || "Horário indisponível." });
     }
+
+    // Dispara em segundo plano — não trava a resposta do agendamento caso
+    // o envio da notificação demore ou falhe.
+    notificarSalao(salao_id, {
+      titulo: "Novo agendamento",
+      corpo: `${nome} marcou um horário.`,
+      url: "/admin",
+    }).catch((err) => console.error("Erro ao notificar novo agendamento:", err));
 
     res.json({ ok: true, agendamento_id: resultado.agendamento_id });
 

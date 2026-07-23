@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
+import cron from "node-cron";
 
 import agendamentoRoutes from "./routes/agendamentoRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -15,6 +16,8 @@ import agendamentosAdminRoutes from "./routes/agendamentosAdminRoutes.js";
 import servicosRoutes from "./routes/servicosRoutes.js";
 import profissionaisRoutes from "./routes/profissionaisRoutes.js";
 import portfolioRoutes from "./routes/portfolioRoutes.js";
+import pushRoutes from "./routes/pushRoutes.js";
+import { notificarTodosSaloes } from "./lib/pushNotificacoes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +42,7 @@ app.use("/admin/api/agendamentos", agendamentosAdminRoutes);
 app.use("/admin/api/servicos", servicosRoutes);
 app.use("/admin/api/profissionais", profissionaisRoutes);
 app.use("/admin/api/portfolio", portfolioRoutes);
+app.use("/admin/api/push", pushRoutes);
 
 app.get("/api", (req, res) => {
     res.json({ status: "Salonnia App online 🚀" });
@@ -62,3 +66,19 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Salonnia App rodando na porta ${PORT}`);
 });
+
+// Lembrete semanal: todo domingo às 17h, avisa os salões com
+// notificações ativadas pra darem uma olhada na agenda da semana.
+// Ajuste o horário/dia mudando o padrão cron abaixo (minuto hora dia-do-mês mês dia-da-semana).
+cron.schedule(
+  "0 17 * * 0",
+  async () => {
+    console.log("Enviando lembrete semanal de agenda...");
+    await notificarTodosSaloes({
+      titulo: "Atualize sua agenda da semana",
+      corpo: "Dá uma olhada nos agendamentos e horários disponíveis dessa semana.",
+      url: "/admin",
+    });
+  },
+  { timezone: "America/Sao_Paulo" },
+);

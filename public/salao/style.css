@@ -17,15 +17,19 @@
 }
 
 :root {
-  --pink: #ffaaaa;
-  --pink-soft: #ffd2d2;
-  --cream: #fff6f2;
-  --brown: #28180c;
-  --brown-soft: rgba(20, 20, 20, 0.62);
-  --accent: #d10505;
-  --accent-hover: #ef0c0c;
-  --border-soft: rgba(20, 20, 20, 0.1);
-  --border-strong: rgba(20, 20, 20, 0.18);
+  /* PALETA DA MARCA (mesma do painel admin) */
+  --pink: #edc2cb;           /* rosa blush — fundo geral */
+  --pink-soft: #f5d9e0;      /* rosa blush mais claro */
+  --cream: #fbeef1;          /* superfície dos cards/inputs, tom bem suave do blush */
+  --brown: #641546;          /* roxo Iara — antes era o marrom/dark, agora é o roxo de destaque */
+  --brown-soft: #737175;     /* cinza de apoio — texto secundário */
+  --accent: #641546;         /* roxo Iara — CTAs, links, seleção */
+  --accent-hover: #7d1c58;   /* roxo Iara, hover */
+  --border-soft: rgba(46, 42, 44, 0.1);
+  --border-strong: rgba(46, 42, 44, 0.18);
+  --danger: #d10505;         /* vermelho só pra erro/aviso — não faz parte da marca */
+  --danger-soft: rgba(209, 5, 5, 0.08);
+  --danger-border: rgba(209, 5, 5, 0.25);
   --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.16), 0 4px 14px rgba(0, 0, 0, 0.08);
@@ -85,7 +89,7 @@ h3 {
   box-shadow: var(--shadow-md);
 }
 .btn-primary:hover {
-  background: var(--brown-soft);
+  background: var(--accent-hover);
   transform: translateY(-2px);
 }
 .btn-primary:disabled {
@@ -172,7 +176,7 @@ h3 {
 .menu-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(40, 24, 12, 0.5);
+  background: rgba(100, 21, 70, 0.5);
   z-index: 90;
 }
 
@@ -492,15 +496,15 @@ h3 {
 }
 
 .aviso-sinal {
-  background: rgba(209, 5, 5, 0.08);
-  border: 1px solid rgba(209, 5, 5, 0.25);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   font-size: 0.85rem;
   margin-top: 12px;
 }
 .erro-envio {
-  color: var(--accent);
+  color: var(--danger);
   font-size: 0.85rem;
   margin-top: 10px;
 }
@@ -682,7 +686,7 @@ h3 {
 .lightbox {
   position: fixed;
   inset: 0;
-  background: rgba(20, 12, 6, 0.92);
+  background: rgba(30, 6, 21, 0.92);
   z-index: 300;
   display: flex;
   align-items: center;
@@ -960,4 +964,44 @@ select {
   .portfolio-pagina-grid {
     column-count: 1;
   }
+}
+
+/* ===== FOTO DE REFERÊNCIA (wizard de agendamento) ===== */
+.referencia-bloco {
+  margin: 18px 0;
+}
+.referencia-legenda {
+  font-size: 0.85rem;
+  color: var(--brown-soft);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.referencia-preview-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  margin-bottom: 12px;
+}
+.referencia-preview {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  display: block;
+}
+.referencia-remover {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brown);
+  color: #fff;
+  border: 2px solid #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
 }

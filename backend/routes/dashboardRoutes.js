@@ -36,7 +36,23 @@ router.get("/", requireAuth, async (req, res) => {
   const confirmadosMes = lista.filter((a) =>
     STATUS_QUE_CONTAM_COMO_FATURAMENTO.includes(a.status),
   ).length;
-  const totalAgendamentosMes = confirmadosMes;
+
+  // Total de agendamentos do mês: conta todos, exceto os cancelados.
+  const totalAgendamentosMes = lista.filter(
+    (a) => a.status !== "cancelado",
+  ).length;
+
+  // Agendamentos de hoje: mesmo critério (todos, exceto cancelados),
+  // filtrando pela data de hoje dentro da lista já buscada do mês.
+  const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const fimHoje = new Date(inicioHoje);
+  fimHoje.setDate(fimHoje.getDate() + 1);
+
+  const agendamentosHoje = lista.filter((a) => {
+    if (a.status === "cancelado") return false;
+    const dataAgendamento = new Date(a.data_hora);
+    return dataAgendamento >= inicioHoje && dataAgendamento < fimHoje;
+  }).length;
 
   const ticketMedio =
     confirmadosMes > 0 ? faturamentoMes / confirmadosMes : 0;
@@ -82,6 +98,7 @@ router.get("/", requireAuth, async (req, res) => {
     ok: true,
     faturamentoMes,
     totalAgendamentosMes,
+    agendamentosHoje,
     confirmadosMes,
     ticketMedio,
     proximosAgendamentos: proximos || [],

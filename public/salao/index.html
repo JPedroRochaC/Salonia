@@ -237,6 +237,30 @@
               Depois de enviar, você vai receber os dados do Pix.
             </p>
 
+            <div id="referenciaBloco" class="referencia-bloco">
+              <h3 class="comprovante-titulo">Foto de referência (opcional)</h3>
+              <p class="referencia-legenda">
+                Tem uma ideia em mente? Manda uma foto de inspiração pra
+                gente já saber o que você quer.
+              </p>
+
+              <div id="referenciaPreviewWrap" class="referencia-preview-wrap" hidden>
+                <img id="referenciaPreview" class="referencia-preview" src="" alt="Prévia da foto de referência" />
+                <button id="btnRemoverReferencia" type="button" class="referencia-remover" aria-label="Remover foto">×</button>
+              </div>
+
+              <label for="inputReferencia" id="referenciaLabel" class="upload-label">
+                <span id="referenciaLabelTexto">Escolher foto</span>
+                <input
+                  type="file"
+                  id="inputReferencia"
+                  accept="image/*"
+                  hidden
+                />
+              </label>
+              <p id="erroReferencia" class="erro-envio" hidden></p>
+            </div>
+
             <p id="erroEnvio" class="erro-envio" hidden></p>
 
             <button id="btnConfirmar" class="btn btn-primary btn-full">

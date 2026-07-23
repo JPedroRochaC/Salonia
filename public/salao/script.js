@@ -405,6 +405,12 @@ async function iniciarWizard() {
   el("btnContinuarDados").addEventListener("click", validarDados);
   el("btnConfirmar").addEventListener("click", confirmarAgendamento);
 
+  el("inputReferencia").addEventListener("change", (e) => {
+    const arquivo = e.target.files[0];
+    if (arquivo) mostrarPreviewReferencia(arquivo);
+  });
+  el("btnRemoverReferencia").addEventListener("click", removerReferencia);
+
   configurarPagamentoSinal();
 
   await carregarServicos();
@@ -696,6 +702,80 @@ function irParaWhatsapp() {
   return true;
 }
 
+// ============================================================
+// FOTO DE REFERÊNCIA (opcional, no passo de confirmação)
+// ============================================================
+function mostrarPreviewReferencia(arquivo) {
+  esconderErroReferencia();
+  const leitor = new FileReader();
+  leitor.onload = (e) => {
+    el("referenciaPreview").src = e.target.result;
+    el("referenciaPreviewWrap").hidden = false;
+    el("referenciaLabel").hidden = true;
+  };
+  leitor.readAsDataURL(arquivo);
+}
+
+function removerReferencia() {
+  el("inputReferencia").value = "";
+  el("referenciaPreview").src = "";
+  el("referenciaPreviewWrap").hidden = true;
+  el("referenciaLabel").hidden = false;
+}
+
+function mostrarErroReferencia(msg) {
+  const erroEl = el("erroReferencia");
+  erroEl.textContent = msg;
+  erroEl.hidden = false;
+}
+
+function esconderErroReferencia() {
+  el("erroReferencia").hidden = true;
+}
+
+// Sobe a foto (se o cliente escolheu uma) direto pro Supabase Storage e
+// vincula ao agendamento já criado. Não trava o fluxo principal: se der
+// erro aqui, o agendamento em si já foi confirmado normalmente.
+async function enviarFotoReferenciaSeHouver(agendamentoId) {
+  const arquivo = el("inputReferencia").files[0];
+  if (!arquivo) return;
+
+  try {
+    const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
+    const caminho = `${slug}/${agendamentoId}-${Date.now()}.${extensao}`;
+
+    const { error: erroUpload } = await sb.storage
+      .from("referencias")
+      .upload(caminho, arquivo);
+
+    if (erroUpload) {
+      console.error("Erro ao enviar foto de referência:", erroUpload);
+      mostrarErroReferencia(
+        "Não deu pra enviar a foto, mas seu agendamento já foi confirmado. Pode mandar a foto pelo WhatsApp."
+      );
+      return;
+    }
+
+    const { data: urlData } = sb.storage
+      .from("referencias")
+      .getPublicUrl(caminho);
+
+    const { error: erroRpc } = await sb.rpc("anexar_foto_referencia", {
+      p_agendamento_id: agendamentoId,
+      p_foto_referencia_url: urlData.publicUrl,
+    });
+
+    if (erroRpc) {
+      console.error("Erro ao vincular foto de referência:", erroRpc);
+      mostrarErroReferencia(
+        "A foto foi enviada, mas houve um erro ao vincular. Avise o salão pelo WhatsApp."
+      );
+    }
+  } catch (err) {
+    console.error("Erro inesperado ao enviar foto de referência:", err);
+  }
+}
+
 async function confirmarAgendamento() {
   const btn = el("btnConfirmar");
   btn.disabled = true;
@@ -743,6 +823,12 @@ async function confirmarAgendamento() {
     }
 
     estado.agendamentoId = resultado.agendamento_id || null;
+
+    if (estado.agendamentoId && el("inputReferencia").files[0]) {
+      btn.textContent = "Enviando foto...";
+      await enviarFotoReferenciaSeHouver(estado.agendamentoId);
+    }
+
     btn.disabled = false;
     btn.textContent = "Solicitar agendamento";
 
