@@ -129,7 +129,9 @@ async function ativarNotificacoes() {
     if (botao) botao.textContent = "🔔 Notificações ativadas";
   } catch (err) {
     console.error("Erro ao ativar notificações:", err);
-    alert("Não deu pra ativar as notificações agora. Tenta de novo em instantes.");
+    // TEMPORÁRIO PRA DIAGNÓSTICO — depois de descobrir a causa, reverte
+    // essa linha pra mensagem genérica de novo.
+    alert("Erro ao ativar notificações: " + (err?.message || err));
   }
 }
 
