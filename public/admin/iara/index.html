@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#641546" />
+    <title>Iara | Salonia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/admin/iara/style.css" />
+  </head>
+  <body>
+    <main class="iara-page">
+      <header class="iara-mobile-header">
+        <button type="button" id="btnIaraAbrirDrawer" class="iara-mobile-hamburguer" aria-label="Abrir menu"><span></span><span></span><span></span></button>
+        <div><strong id="iaraMobileSalaoNome">Meu salão</strong><small class="iara-nome"><b>Ia</b><span>ra</span></small></div>
+      </header>
+      <aside class="iara-menu-lateral" id="iaraMenuLateral">
+        <div class="iara-menu-topo">
+          <a class="iara-marca" href="/admin/iara"><span class="salonia-nome">Salonia</span> <span class="iara-nome"><b>Ia</b><span>ra</span></span></a>
+          <button type="button" id="btnIaraMenuToggle" class="iara-menu-hamburguer" aria-label="Fechar menu" aria-expanded="false" aria-controls="iaraMenu">×</button>
+        </div>
+        <div class="iara-salao-resumo">
+          <img id="iaraSalaoLogo" src="" alt="" hidden />
+          <div><strong id="iaraSalaoNome">Meu salão</strong><span>Central Iara</span></div>
+        </div>
+        <a class="iara-voltar" href="/admin">← Voltar ao painel</a>
+        <nav class="iara-menu" id="iaraMenu" aria-label="Menu da Iara">
+          <button class="active" data-iara-subaba="visao"><svg class="ui-icon" aria-hidden="true"><use href="/admin/icons/ui.svg#layout-dashboard"></use></svg>Visão geral</button>
+          <button data-iara-subaba="conversas"><svg class="ui-icon" aria-hidden="true"><use href="/admin/icons/ui.svg#message-circle"></use></svg>Conversas</button>
+          <button data-iara-subaba="configuracoes"><svg class="ui-icon" aria-hidden="true"><use href="/admin/icons/ui.svg#bot"></use></svg>Central Iara</button>
+          <button data-iara-subaba="conhecimento"><svg class="ui-icon" aria-hidden="true"><use href="/admin/icons/ui.svg#clipboard-list"></use></svg>Conhecimento</button>
+          <button data-iara-subaba="contatos"><svg class="ui-icon" aria-hidden="true"><use href="/admin/icons/ui.svg#user-x"></use></svg>Contatos ignorados</button>
+          <button data-iara-subaba="auditoria"><svg class="ui-icon" aria-hidden="true"><use href="/admin/icons/ui.svg#clipboard-list"></use></svg>Atividade da Iara</button>
+        </nav>
+        <p class="iara-menu-rodape"><span class="iara-nome"><b>Ia</b><span>ra</span></span><br /><span>Recepcionista virtual</span></p>
+      </aside>
+      <div id="iaraMenuOverlay" class="iara-menu-overlay" hidden></div>
+
+      <section class="iara-conteudo">
+
+      <section id="iaraSemPlano" class="iara-hero" hidden>
+        <span class="iara-eyebrow">Iara para o seu salão</span>
+        <h1>Uma recepcionista virtual que conhece o seu negócio.</h1>
+        <p>Ela responde no WhatsApp, consulta os serviços e ajuda sua equipe a não perder oportunidades.</p>
+        <div class="iara-beneficios"><span>Atendimento inteligente</span><span>Agenda integrada</span><span>Transferência para humana</span></div>
+        <button type="button" id="btnIaraAssinar" class="btn btn-primary">Quero ativar a Iara</button>
+        <p id="iaraAssinarMensagem" class="iara-mensagem" hidden>Fale com o suporte <span class="salonia-texto">Salonia</span> para ativar a Iara na sua conta.</p>
+      </section>
+
+      <section id="iaraCentral" hidden>
+        <section class="iara-pagina iara-visao" data-iara-pagina="visao">
+        <div class="iara-hero iara-hero-central">
+          <div>
+            <span class="iara-eyebrow">Central Iara</span>
+            <h1>Controle sua recepcionista virtual.</h1>
+            <p>A Iara usa os dados do seu <span class="salonia-texto">Salonia</span>. Você configura só o necessário; o resto ela organiza com segurança.</p>
+          </div>
+          <div class="iara-status-wrap">
+            <span id="iaraPlanoBadge" class="iara-plano-badge">Iara</span>
+            <button type="button" id="btnIaraAtivar" class="btn btn-outline">Ligar Iara</button>
+          </div>
+        </div>
+
+        <div class="iara-cards" aria-label="Resumo da Iara">
+          <button type="button" class="iara-card iara-card-atalho" data-iara-atalho="conversas"><span>Conversas ativas</span><strong id="iaraStatConversas">—</strong><small>Ver conversas e atendimentos ›</small></button>
+          <button type="button" class="iara-card iara-card-atalho" data-iara-atalho="conversas"><span>Atendimento humano</span><strong id="iaraStatHumano">—</strong><small>Ver conversas transferidas ›</small></button>
+          <button type="button" class="iara-card iara-card-atalho" data-iara-atalho="auditoria"><span>Mensagens no mês</span><strong id="iaraStatMensagens">—</strong><small>Ver atividade recente ›</small></button>
+          <button type="button" class="iara-card iara-card-atalho" data-iara-atalho="auditoria"><span>Uso de IA</span><strong id="iaraStatUso">—</strong><small id="iaraUsoDetalhe">Ver consumo e atividade ›</small></button>
+        </div>
+        <section class="iara-painel iara-painel-visao">
+          <article class="iara-bloco"><h2>Status da Iara</h2><div id="iaraSaudeLista"></div></article>
+          <article class="iara-bloco iara-whatsapp"><h2>WhatsApp</h2><p id="iaraWhatsappStatus">Ainda não conectado.</p><button type="button" id="btnIaraConectarWhatsapp" class="btn btn-primary">Conectar WhatsApp</button><small>A conexão será feita pelo fluxo oficial da Meta.</small></article>
+        </section>
+        </section>
+
+        <section class="iara-pagina iara-painel" data-iara-pagina="conversas" hidden>
+          <div class="iara-conversas-app">
+            <aside class="iara-conversas-lista">
+              <div class="iara-conversas-lista-topo"><div><span class="iara-eyebrow">Caixa de entrada</span><h2>Conversas</h2></div><button type="button" id="btnIaraNovaConversa" class="btn btn-primary">Teste</button></div>
+              <p class="iara-lista-ajuda">Acompanhe quem está sendo atendida pela Iara ou pela sua equipe.</p>
+              <div id="iaraNovaConversa" class="iara-nova-conversa" hidden>
+                <form id="formIaraNovaConversa">
+                  <input id="iaraTesteNome" maxlength="120" placeholder="Nome da cliente" />
+                  <input id="iaraTesteTelefone" inputmode="numeric" placeholder="WhatsApp com DDD" required />
+                  <input id="iaraTesteMensagem" maxlength="2000" placeholder="Mensagem para testar" required />
+                  <button type="submit" class="btn btn-primary">Criar conversa de teste</button>
+                </form>
+              </div>
+              <div id="iaraConversasLista" class="iara-conversas-itens"></div>
+              <p id="iaraConversasVazio" class="iara-vazio" hidden>Nenhuma conversa ainda. Crie um teste para começar.</p>
+            </aside>
+            <article class="iara-chat">
+              <div id="iaraChatVazio" class="iara-chat-vazio"><strong>Selecione uma conversa</strong><span>As mensagens e controles aparecerão aqui.</span></div>
+              <div id="iaraChatConteudo" hidden>
+                <header class="iara-chat-topo"><div><strong id="iaraChatNome">Cliente</strong><span id="iaraChatTelefone"></span></div><button type="button" id="btnIaraStatusConversa" class="btn btn-outline">Pausar Iara</button></header>
+                <div id="iaraChatMensagens" class="iara-chat-mensagens"></div>
+                <form id="formIaraTeste" class="iara-chat-envio"><input id="iaraChatMensagem" maxlength="2000" placeholder="Simular mensagem recebida para testar" required /><button type="submit" class="btn btn-primary">Enviar</button></form>
+                <p id="iaraTesteErro" class="iara-erro" hidden></p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="iara-pagina iara-painel" data-iara-pagina="configuracoes" hidden>
+          <form id="formIaraConfiguracao" class="iara-bloco iara-form">
+            <div class="iara-form-cabecalho"><span class="iara-eyebrow">Central Iara</span><h2>Pronta para atender</h2><p>Já deixamos uma configuração acolhedora pronta. Edite apenas o que quiser deixar com a cara do seu salão.</p></div>
+            <section class="iara-config-secao">
+              <div><h3>Como a Iara conversa</h3><p>O jeito como ela se apresenta para cada cliente.</p></div>
+              <label for="iaraTom">Tom de voz<select id="iaraTom"><option value="acolhedora">Acolhedora</option><option value="objetiva">Objetiva</option><option value="sofisticada">Sofisticada</option></select></label>
+              <label for="iaraMensagemInicial">Mensagem inicial<textarea id="iaraMensagemInicial" rows="3" placeholder="Olá! Sou a Iara..."></textarea></label>
+              <label for="iaraMensagemForaHorario">Mensagem quando a equipe estiver indisponível (opcional)<textarea id="iaraMensagemForaHorario" rows="3" placeholder="A equipe pode não estar disponível agora, mas eu sigo por aqui..."></textarea></label>
+              <label class="iara-check"><input id="iaraEmojis" type="checkbox" /> Usar emojis nas respostas</label>
+            </section>
+            <section class="iara-config-secao">
+              <div><h3>Atendimento e segurança</h3><p>Regras simples para a conversa continuar sob seu controle.</p></div>
+              <label class="iara-check"><input id="iaraTransferirHumano" type="checkbox" /> Transferir quando a cliente pedir uma pessoa</label>
+              <label class="iara-check"><input id="iaraIgnorarHumano" type="checkbox" /> Não responder conversas assumidas por humano</label>
+              <label for="iaraMensagemTransferencia">Mensagem ao transferir para a equipe<textarea id="iaraMensagemTransferencia" rows="3" placeholder="Vou chamar uma pessoa da nossa equipe..."></textarea></label>
+              <label for="iaraLimiteResposta">Tamanho máximo da resposta<select id="iaraLimiteResposta"><option value="300">Curta (até 300 caracteres)</option><option value="500">Padrão (até 500 caracteres)</option><option value="900">Detalhada (até 900 caracteres)</option></select></label>
+            </section>
+            <div class="iara-form-acoes"><p id="iaraConfiguracaoErro" class="iara-erro" hidden></p><button type="submit" class="btn btn-primary">Salvar configurações</button></div>
+          </form>
+        </section>
+
+        <section class="iara-pagina iara-painel" data-iara-pagina="conhecimento" hidden>
+          <div class="iara-bloco iara-conhecimento-manual">
+            <span class="iara-eyebrow">Adicionar à Iara</span><h2>Informação extra</h2><p>Adicione apenas o que não existe em outra área do painel, como estacionamento, política de atraso ou uma orientação especial.</p>
+            <form id="formIaraConhecimento" class="iara-form"><label>Categoria<select id="iaraConhecimentoCategoria"><option value="politicas">Políticas</option><option value="pagamento">Formas de pagamento</option><option value="extra">Informação extra</option></select></label><label>Título<input id="iaraConhecimentoTitulo" placeholder="Ex.: Estacionamento" /></label><label>Informação<textarea id="iaraConhecimentoConteudo" rows="4" placeholder="O que a Iara deve saber?"></textarea></label><button class="btn btn-primary">Adicionar informação</button></form><div id="iaraConhecimentoLista" class="iara-lista"></div></div>
+          <div class="iara-bloco">
+            <span class="iara-eyebrow">Dados já cadastrados</span><h2>Conhecimento do salão</h2><p>A Iara já usa estes dados do seu painel. Você pode personalizar um texto, ocultá-lo ou restaurar o original a qualquer momento.</p>
+            <div id="iaraConhecimentoAutomatico" class="iara-conhecimento-auto"></div>
+          </div>
+        </section>
+        <section class="iara-pagina iara-painel" data-iara-pagina="ferramentas" hidden><div class="iara-bloco"><h2>Ferramentas da Iara</h2><p>Escolha o que a Iara pode fazer. Ela sempre consulta os dados reais antes de responder ou agendar.</p><div class="iara-ferramentas"><label class="iara-check"><input type="checkbox" checked /> Consultar serviços, preços e profissionais</label><label class="iara-check"><input type="checkbox" checked /> Consultar horários disponíveis</label><label class="iara-check"><input type="checkbox" checked /> Criar, cancelar e reagendar</label><label class="iara-check"><input type="checkbox" checked /> Transferir para atendimento humano</label></div></div></section>
+
+        <section class="iara-pagina iara-painel" data-iara-pagina="contatos" hidden>
+          <div class="iara-bloco"><h2>Contatos ignorados</h2><p>A Iara não responde estes números: equipe, família, fornecedores e contatos pessoais.</p><form id="formIaraContato" class="iara-contato-form"><input id="iaraContatoNome" placeholder="Nome (opcional)" /><input id="iaraContatoTelefone" inputmode="numeric" placeholder="WhatsApp com DDD" /><select id="iaraContatoCategoria"><option value="manual">Escolhido manualmente</option><option value="familiar">Familiar</option><option value="amigo">Amigo</option><option value="funcionario">Funcionário</option><option value="fornecedor">Fornecedor</option><option value="pessoal">Contato pessoal</option></select><button class="btn btn-outline">Adicionar</button></form><p id="iaraContatoErro" class="iara-erro" hidden></p><div id="iaraContatosLista" class="iara-lista"></div><p id="iaraContatosVazio" class="iara-vazio" hidden>Nenhum contato ignorado.</p></div>
+        </section>
+
+        <section class="iara-pagina iara-painel" data-iara-pagina="auditoria" hidden><div class="iara-bloco"><h2>Atividade da Iara</h2><p>Veja o histórico de decisões, alterações, transferências e erros importantes.</p><div id="iaraEventosLista" class="iara-lista"></div><p id="iaraEventosVazio" class="iara-vazio" hidden>Nenhuma atividade registrada ainda.</p></div></section>
+        <section class="iara-pagina iara-painel" data-iara-pagina="templates" hidden><div class="iara-bloco"><h2>Templates</h2><p>Modelos para confirmação, lembrete, cancelamento, aniversário e campanhas.</p><form id="formIaraTemplate" class="iara-form"><label>Tipo</label><select id="iaraTemplateTipo"><option value="confirmacao">Confirmação</option><option value="lembrete">Lembrete</option><option value="cancelamento">Cancelamento</option><option value="aniversario">Aniversário</option><option value="promocao">Promoção</option></select><label>Nome</label><input id="iaraTemplateNome" placeholder="Ex.: Lembrete de amanhã" /><label>Mensagem</label><textarea id="iaraTemplateMensagem" rows="4"></textarea><button class="btn btn-primary">Salvar template</button></form><div id="iaraTemplatesLista" class="iara-lista"></div></div></section>
+        <section class="iara-pagina iara-painel" data-iara-pagina="automacoes" hidden><div id="iaraAutomacoesPremium" class="iara-bloco"></div></section>
+      </section>
+      </section>
+    </main>
+    <script src="/admin/iara/script.js" defer></script>
+  </body>
+</html>

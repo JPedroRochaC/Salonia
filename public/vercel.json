@@ -3,6 +3,7 @@
     { "source": "/agendamento/:path*", "destination": "https://salonia.onrender.com/agendamento/:path*" },
     { "source": "/admin/api/:path*", "destination": "https://salonia.onrender.com/admin/api/:path*" },
     { "source": "/admin/auth/:path*", "destination": "https://salonia.onrender.com/admin/auth/:path*" },
+    { "source": "/admin/iara", "destination": "/admin/iara/index.html" },
     { "source": "/admin", "destination": "/admin/index.html" },
     { "source": "/:slug/agendar", "destination": "https://salonia.onrender.com/:slug/agendar" },
     { "source": "/:slug/portfolio", "destination": "https://salonia.onrender.com/:slug/portfolio" },

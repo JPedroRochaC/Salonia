@@ -2,6 +2,7 @@ const el = (id) => document.getElementById(id);
 
 const estado = {
   salao: null,
+  iara: null,
 };
 
 // ============================================================
@@ -275,12 +276,16 @@ document.addEventListener("keydown", (e) => {
 // ============================================================
 // NAVEGAÇÃO ENTRE ABAS
 // ============================================================
-document.querySelectorAll(".nav-item").forEach((btn) => {
+document.querySelectorAll(".nav-item, .sidebar-iara-cta").forEach((btn) => {
   btn.addEventListener("click", () => {
+    if (btn.classList.contains("sidebar-iara-cta")) {
+      window.location.assign("/admin/iara");
+      return;
+    }
     if (btn.classList.contains("nav-item-bloqueado")) return;
 
     document
-      .querySelectorAll(".nav-item")
+      .querySelectorAll(".nav-item, .sidebar-iara-cta")
       .forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
 
@@ -295,7 +300,6 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
     if (aba === "agendamentos") carregarAgendamentos();
     if (aba === "servicos") carregarServicosEProfissionais();
     if (aba === "portfolio") carregarPortfolio();
-
     fecharMenuMobile(); // no celular, trocar de aba já fecha o drawer sozinho
   });
 });
@@ -343,26 +347,28 @@ async function carregarDashboard() {
       el("proximosVazio").hidden = true;
       dados.proximosAgendamentos.forEach((ag) => {
         const item = document.createElement("div");
-        item.className = "agendamento-item";
+        item.className = "agendamento-item agendamento-item-dashboard";
+        item.tabIndex = 0;
+        item.setAttribute("role", "button");
 
-        const dataFormatada = new Date(ag.data_hora).toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        const data = new Date(ag.data_hora);
+        const horario = data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const dataFormatada = data.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" }).replace(".", "");
 
         const rotulo = ROTULOS_STATUS[ag.status] || ag.status;
-        const clicavel = ag.status === "aguardando_pagamento" || ag.status === "aguardando_confirmacao";
+        item.setAttribute("aria-label", `Abrir agendamento de ${ag.clientes?.nome || "cliente"}`);
 
         item.innerHTML = `
+          <div class="agendamento-momento">
+            <strong>${horario}</strong>
+            <span>${dataFormatada}</span>
+          </div>
           <div class="agendamento-info">
             <span class="agendamento-cliente">
               <strong>${escaparHtml(ag.clientes?.nome || "Cliente")}</strong>
             </span>
-            <span class="agendamento-detalhe">
-              ${dataFormatada} · ${escaparHtml(ag.servicos?.nome || "")} · ${formatarMoeda(ag.valor)}
-            </span>
+            <span class="agendamento-detalhe">${escaparHtml(ag.servicos?.nome || "Serviço")}</span>
+            <span class="agendamento-valor">${formatarMoeda(ag.valor)}</span>
           </div>
           <div class="agendamento-lado">
             ${
@@ -389,27 +395,33 @@ async function carregarDashboard() {
    </button>`
                 : ""
             }
-            <span class="status-badge status-${ag.status}" ${clicavel ? 'style="cursor:pointer;" title="Clique para confirmar ou cancelar"' : ""}>${rotulo}</span>
+            <span class="status-badge status-${ag.status}">${rotulo}</span>
           </div>
         `;
 
         const botaoFoto = item.querySelector(".btn-mini-referencia");
         if (botaoFoto) {
-          botaoFoto.addEventListener("click", () => {
+          botaoFoto.addEventListener("click", (evento) => {
+            evento.stopPropagation();
             window.open(botaoFoto.dataset.foto, "_blank", "noopener");
           });
         }
 
         const botaoComprovante = item.querySelector(".btn-mini-comprovante");
         if (botaoComprovante) {
-          botaoComprovante.addEventListener("click", () => {
+          botaoComprovante.addEventListener("click", (evento) => {
+            evento.stopPropagation();
             window.open(botaoComprovante.dataset.comprovante, "_blank", "noopener");
           });
         }
 
-        if (clicavel) {
-          item.querySelector(".status-badge").addEventListener("click", () => abrirDetalheAgendamento(ag));
-        }
+        item.addEventListener("click", () => abrirDetalheAgendamento(ag));
+        item.addEventListener("keydown", (evento) => {
+          if (evento.key === "Enter" || evento.key === " ") {
+            evento.preventDefault();
+            abrirDetalheAgendamento(ag);
+          }
+        });
 
         lista.appendChild(item);
       });
@@ -418,6 +430,106 @@ async function carregarDashboard() {
     console.error("Erro ao carregar dashboard:", err);
   }
 }
+
+// ============================================================
+// CENTRAL IARA
+// ============================================================
+function abrirSubAbaIara(nome) {
+  document.querySelectorAll("[data-iara-subaba]").forEach((botao) => botao.classList.toggle("active", botao.dataset.iaraSubaba === nome));
+  document.querySelectorAll("[data-iara-conteudo]").forEach((painel) => { painel.hidden = painel.dataset.iaraConteudo !== nome; });
+}
+
+function rotuloCategoriaIara(categoria) {
+  return ({ familiar: "Familiar", amigo: "Amigo", funcionario: "Funcionário", fornecedor: "Fornecedor", pessoal: "Contato pessoal", manual: "Manual" })[categoria] || "Manual";
+}
+
+async function carregarIara() {
+  try {
+    const dados = await chamarApi("/admin/api/iara");
+    estado.iara = dados;
+    const semPlano = dados.plano === "nenhum";
+    el("iaraSemPlano").hidden = !semPlano;
+    el("iaraCentral").hidden = semPlano;
+    if (semPlano) return;
+    const config = dados.configuracao;
+    const resumo = dados.resumo;
+    el("iaraPlanoBadge").textContent = `IAra ${dados.plano === "premium" ? "Premium" : "Pro"}`;
+    el("btnIaraAtivar").textContent = config.ativa ? "Pausar IAra" : "Ligar IAra";
+    el("btnIaraAtivar").classList.toggle("btn-primary", !config.ativa);
+    el("iaraStatConversas").textContent = resumo.conversas_ativas;
+    el("iaraStatHumano").textContent = resumo.em_atendimento_humano;
+    el("iaraStatMensagens").textContent = resumo.mensagens_mes;
+    el("iaraStatUso").textContent = `${resumo.mensagens_com_ia}/${resumo.limite_mensal}`;
+    el("iaraUsoDetalhe").textContent = `${resumo.tokens_mes.toLocaleString("pt-BR")} tokens registrados`;
+    el("iaraNome").value = config.nome_assistente || "IAra";
+    el("iaraTom").value = config.tom_voz || "acolhedora";
+    el("iaraMensagemInicial").value = config.mensagem_inicial || "";
+    el("iaraMensagemForaHorario").value = config.mensagem_fora_horario || "";
+    el("iaraEmojis").checked = config.usar_emojis;
+    el("iaraTransferirHumano").checked = config.transferir_para_humano;
+    el("iaraIgnorarHumano").checked = config.ignorar_atendimento_humano;
+    el("iaraLimiteResposta").value = String(config.limite_caracteres_resposta || 500);
+    el("iaraWhatsappStatus").textContent = config.whatsapp_status === "conectado" ? `Conectado: ${config.whatsapp_numero || "número do salão"}` : "Ainda não conectado. A IAra pode ser configurada enquanto isso.";
+    const saude = [config.ativa ? "IAra está ligada e pronta para receber o WhatsApp." : "IAra está pausada. Ela não responderá clientes até ser ligada."];
+    if (!config.mensagem_inicial) saude.push("Defina uma mensagem inicial para deixar a recepção mais personalizada.");
+    if (config.whatsapp_status !== "conectado") saude.push("WhatsApp ainda não conectado — usaremos o fluxo oficial da Meta quando estiver pronto.");
+    el("iaraSaudeLista").innerHTML = saude.map((item) => `<p>${escaparHtml(item)}</p>`).join("");
+    const contatos = el("iaraContatosLista");
+    contatos.innerHTML = "";
+    el("iaraContatosVazio").hidden = Boolean(dados.contatos?.length);
+    (dados.contatos || []).forEach((contato) => {
+      const item = document.createElement("div");
+      item.className = "item-card";
+      item.innerHTML = `<div class="item-card-texto"><strong>${escaparHtml(contato.nome || contato.telefone)}</strong><span>${escaparHtml(contato.telefone)} · ${rotuloCategoriaIara(contato.categoria)}</span></div><div class="item-card-acoes"><button class="btn-mini btn-mini-perigo">Remover</button></div>`;
+      item.querySelector("button").addEventListener("click", async () => { await chamarApi(`/admin/api/iara/contatos-ignorados/${contato.id}`, { method: "DELETE" }); carregarIara(); });
+      contatos.appendChild(item);
+    });
+    const eventos = el("iaraEventosLista");
+    eventos.innerHTML = "";
+    el("iaraEventosVazio").hidden = Boolean(dados.eventos?.length);
+    (dados.eventos || []).forEach((evento) => {
+      const item = document.createElement("div");
+      item.className = "iara-evento";
+      item.innerHTML = `<strong>${escaparHtml(evento.descricao)}</strong><span>${new Date(evento.criado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</span>`;
+      eventos.appendChild(item);
+    });
+    el("iaraAutomacoesPremium").innerHTML = dados.plano === "premium" ? "<h3>Automações Premium</h3><p>Confirmações, lembretes, campanhas e recuperação de clientes serão configurados aqui na próxima etapa.</p>" : "<h3>Automações Premium</h3><p>Confirmações automáticas, campanhas e recuperação de clientes ficam disponíveis na IAra Premium.</p><button type=\"button\" class=\"btn btn-outline\">Conhecer IAra Premium</button>";
+  } catch (erro) {
+    console.error("Erro ao carregar IAra:", erro);
+    el("iaraSemPlano").hidden = false;
+    el("iaraCentral").hidden = true;
+    el("iaraAssinarMensagem").textContent = erro.message;
+    el("iaraAssinarMensagem").hidden = false;
+  }
+}
+
+document.querySelectorAll("[data-iara-subaba]").forEach((botao) => botao.addEventListener("click", () => abrirSubAbaIara(botao.dataset.iaraSubaba)));
+el("btnIaraAssinar").addEventListener("click", () => { el("iaraAssinarMensagem").hidden = false; });
+el("btnIaraConectarWhatsapp").addEventListener("click", () => alert("O botão abrirá a conexão oficial da Meta quando o Embedded Signup estiver configurado. Por enquanto, conclua primeiro a Central IAra."));
+el("btnIaraAtivar").addEventListener("click", async () => {
+  if (!estado.iara?.configuracao) return;
+  await chamarApi("/admin/api/iara/configuracao", { method: "PUT", body: JSON.stringify({ ativa: !estado.iara.configuracao.ativa }) });
+  carregarIara();
+});
+el("formIaraConfiguracao").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const erro = el("iaraConfiguracaoErro");
+  erro.hidden = true;
+  try {
+    await chamarApi("/admin/api/iara/configuracao", { method: "PUT", body: JSON.stringify({ nome_assistente: el("iaraNome").value, tom_voz: el("iaraTom").value, mensagem_inicial: el("iaraMensagemInicial").value, mensagem_fora_horario: el("iaraMensagemForaHorario").value, usar_emojis: el("iaraEmojis").checked, transferir_para_humano: el("iaraTransferirHumano").checked, ignorar_atendimento_humano: el("iaraIgnorarHumano").checked, limite_caracteres_resposta: Number(el("iaraLimiteResposta").value) }) });
+    carregarIara();
+  } catch (e) { erro.textContent = e.message; erro.hidden = false; }
+});
+el("formIaraContato").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const erro = el("iaraContatoErro");
+  erro.hidden = true;
+  try {
+    await chamarApi("/admin/api/iara/contatos-ignorados", { method: "POST", body: JSON.stringify({ nome: el("iaraContatoNome").value, telefone: el("iaraContatoTelefone").value, categoria: el("iaraContatoCategoria").value }) });
+    el("formIaraContato").reset();
+    carregarIara();
+  } catch (e) { erro.textContent = e.message; erro.hidden = false; }
+});
 
 // ============================================================
 // PERSONALIZAÇÃO
@@ -1969,9 +2081,9 @@ el("formBloqueio").addEventListener("submit", async (evento) => {
 // ============================================================
 // SUB-ABAS (Serviços / Profissionais)
 // ============================================================
-document.querySelectorAll(".sub-aba-item").forEach((btn) => {
+document.querySelectorAll("[data-sub-aba]").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".sub-aba-item").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll("[data-sub-aba]").forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
 
     const sub = btn.dataset.subAba;

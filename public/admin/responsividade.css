@@ -14,10 +14,17 @@ html, body { overflow-x: hidden; }
   .conteudo {
     padding: 32px 32px 48px;
   }
+  .aba-iara { margin: -32px -32px -48px; padding: 36px 32px 48px; }
 }
 
 /* ===== MOBILE (até 820px): sidebar vira drawer ===== */
 @media (max-width: 820px) {
+  .aba-iara { margin: -22px -20px -40px; padding: 30px 20px 40px; }
+  .iara-cabecalho { flex-direction: column; }
+  .iara-status-wrap { justify-items: start; }
+  .iara-painel[data-iara-conteudo="visao"] { grid-template-columns: 1fr; }
+  .iara-contato-form { grid-template-columns: 1fr 1fr; }
+  .iara-contato-form .btn { grid-column: 1 / -1; }
   .dashboard-prioridades, .dashboard-desempenho { grid-template-columns: 1fr; }
   .painel-agenda-profissional { padding: 18px; }
   .painel-agenda-profissional-cabecalho { flex-direction: column; }
@@ -30,7 +37,13 @@ html, body { overflow-x: hidden; }
     flex-direction: column;
   }
 
-  .painel-header { display: flex; }
+  .painel-header {
+    display: flex;
+    position: fixed;
+    inset: 0 0 auto;
+    width: 100%;
+    z-index: 40;
+  }
 
   .sidebar {
     position: fixed;
@@ -56,6 +69,7 @@ html, body { overflow-x: hidden; }
   }
 
   .conteudo {
+    margin-top: var(--header-h);
     padding: 22px 20px 40px;
     max-width: 100%;
     width: 100%;
@@ -134,6 +148,9 @@ html, body { overflow-x: hidden; }
     justify-content: space-between;
     flex-wrap: wrap;
   }
+  .agendamento-item-dashboard { grid-template-columns: 78px minmax(0, 1fr) auto; align-items: stretch; padding: 10px; gap: 11px; }
+  .agendamento-item-dashboard .agendamento-momento { flex-basis: 78px; width: 78px; }
+  .agendamento-item-dashboard .agendamento-lado { min-width: 0; margin-left: 0; align-items: flex-end; flex-direction: column; }
   .agendamento-acoes { justify-content: flex-start; }
 
   .item-card {
@@ -239,6 +256,12 @@ html, body { overflow-x: hidden; }
 
 /* ===== CELULAR PEQUENO (até 420px) ===== */
 @media (max-width: 420px) {
+  .agendamento-item-dashboard { grid-template-columns: 72px minmax(0, 1fr); }
+  .agendamento-item-dashboard .agendamento-momento { width: 72px; }
+  .agendamento-item-dashboard .agendamento-lado { grid-column: 2; justify-self: start; align-items: flex-start; flex-direction: row; }
+  .aba-iara { margin: -18px -16px -36px; padding: 26px 16px 36px; }
+  .iara-apresentacao { padding: 24px 18px; }
+  .iara-contato-form { grid-template-columns: 1fr; }
   .periodo-trabalho-campos { grid-template-columns: 1fr; }
   .linha-grade-dia-topo small { width: 100%; }
   .linha-grade-dia-add { width: 100%; }

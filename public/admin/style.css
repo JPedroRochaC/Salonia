@@ -84,6 +84,10 @@ body {
 /* garante fonte unificada em inputs e botões */
 input, textarea, select, button { font-family: var(--font-body); }
 
+/* Ícones do sistema: mesma família, traço e proporção em todo o painel. */
+.ui-icon { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn-mini .ui-icon { width: 14px; height: 14px; flex-basis: 14px; }
+
 h1, h2, h3 {
   font-family: var(--font-heading);
   font-weight: 700;
@@ -536,6 +540,17 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
   overflow-y: auto;
   padding-right: 2px;
 }
+.sidebar-secao { margin: 14px 12px 3px; color: var(--ink-mute); font-size: .66rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.sidebar-secao-operacao { order: 0; }
+.nav-operacao[data-aba="dashboard"] { order: 1; }
+.nav-operacao[data-aba="agendamentos"] { order: 2; }
+.nav-operacao[data-aba="clientes"] { order: 3; }
+.sidebar-secao-configuracao { order: 4; }
+.nav-configuracao[data-aba="servicos"] { order: 5; }
+.nav-configuracao[data-aba="portfolio"] { order: 6; }
+.nav-configuracao[data-aba="faq"] { order: 7; }
+.nav-configuracao[data-aba="personalizacao"] { order: 8; }
+.nav-item-iara { order: 9; margin-top: 12px; }
 
 .nav-item {
   text-align: left;
@@ -581,6 +596,56 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
   font-weight: 700;
   box-shadow: 0 4px 12px -4px rgba(100, 21, 70, 0.5);
 }
+.nav-item-iara { justify-content: space-between; border: 1px solid rgba(124, 28, 93, .22); background: var(--brand-blush-tint); padding: 14px; }
+.nav-item-iara:hover { background: var(--brand-blush); }
+.badge-iara-plus { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; }
+
+.aba-iara { position: relative; isolation: isolate; min-height: calc(100vh - 96px); margin: -40px -48px -56px; padding: 48px; overflow: hidden; background: #2b0a3e; }
+.aba-iara > * { position: relative; z-index: 1; }
+.aba-iara::before, .aba-iara::after { content: ""; position: absolute; z-index: 0; border-radius: 999px; filter: blur(1px); pointer-events: none; }
+.aba-iara::before { width: 380px; height: 380px; top: -220px; right: 9%; background: rgba(255, 139, 207, .23); }
+.aba-iara::after { width: 260px; height: 260px; bottom: -130px; left: 27%; background: rgba(138, 84, 255, .3); }
+.aba-iara .conteudo-sub { color: rgba(255,255,255,.72); }
+.iara-apresentacao { max-width: 820px; padding: 38px; border-radius: 26px; background: #3a104f; border: 1px solid rgba(237,194,203,.28); box-shadow: 0 26px 60px rgba(16, 0, 28, .32); }
+.iara-apresentacao h2, .iara-cabecalho h2 { margin: 7px 0 10px; font-family: var(--font-heading); color: #fff; font-size: clamp(1.55rem, 3vw, 2.15rem); }
+.iara-apresentacao > p { max-width: 650px; color: rgba(255,255,255,.76); line-height: 1.55; }
+.iara-sobrancelha { color: #edc2cb; font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.iara-beneficios { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0; }
+.iara-beneficios span { padding: 8px 12px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.17); border-radius: 999px; color: #fff; font-size: .84rem; }
+.iara-cabecalho { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+.iara-cabecalho .conteudo-sub { max-width: 650px; }
+.iara-status-wrap { display: grid; justify-items: end; gap: 10px; }
+.iara-plano-badge { padding: 6px 11px; background: #edc2cb; color: #641546; border-radius: 999px; font-size: .75rem; font-weight: 900; }
+.iara-cards { margin-bottom: 24px; }
+.aba-iara .card-stat, .aba-iara .iara-saude, .aba-iara .iara-whatsapp, .aba-iara .iara-premium-card, .aba-iara .iara-evento { background: rgba(255,255,255,.95); border-color: rgba(255,214,239,.45); box-shadow: 0 18px 34px rgba(14, 0, 26, .19); }
+.aba-iara .card-stat { min-height: 134px; }
+.aba-iara .card-stat strong { color: #5f0757; }
+.aba-iara .sub-abas { border-color: rgba(255,255,255,.22); }
+.aba-iara .sub-aba-item { color: rgba(255,255,255,.7); }
+.aba-iara .sub-aba-item.active { color: #fff; background: rgba(255,255,255,.14); border-color: rgba(255,181,225,.65); }
+.aba-iara .btn-primary { background: #edc2cb; border-color: transparent; color: #641546; box-shadow: 0 12px 22px rgba(15, 0, 28, .25); }
+.aba-iara .btn-outline { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.42); color: #fff; }
+.aba-iara .btn-outline:hover { background: rgba(255,255,255,.2); }
+.iara-sub-abas { margin-top: 6px; }
+.iara-painel { max-width: 900px; }
+.iara-painel h3 { margin: 0 0 8px; font-family: var(--font-heading); color: var(--ink); }
+.iara-painel > .conteudo-sub { margin-bottom: 14px; }
+.iara-saude, .iara-whatsapp, .iara-premium-card { padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card-bg); box-shadow: var(--shadow-xs); }
+.iara-painel[data-iara-conteudo="visao"] { display: grid; grid-template-columns: 1.25fr .9fr; gap: 16px; }
+.iara-saude p { margin: 0; padding: 10px 0; border-bottom: 1px solid var(--border); color: var(--ink-soft); font-size: .88rem; line-height: 1.45; }
+.iara-saude p:last-child { border-bottom: 0; }
+.iara-whatsapp { display: flex; flex-direction: column; align-items: flex-start; }
+.iara-whatsapp p { color: var(--ink-soft); line-height: 1.45; flex: 1; }
+.iara-whatsapp small { margin-top: 12px; color: var(--ink-soft); line-height: 1.4; }
+.iara-check { display: flex; align-items: center; gap: 9px; margin: 12px 0; color: var(--ink-soft); font-size: .88rem; }
+.iara-check input { accent-color: var(--accent); }
+.iara-contato-form { display: grid; grid-template-columns: 1fr 1fr minmax(150px, .8fr) auto; gap: 10px; align-items: end; max-width: 900px; margin: 16px 0 12px; }
+.iara-contato-form .input { margin: 0; }
+.iara-eventos { display: grid; gap: 9px; }
+.iara-evento { display: flex; justify-content: space-between; gap: 14px; padding: 13px 15px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.iara-evento strong { color: var(--ink); font-size: .87rem; }
+.iara-evento span { color: var(--ink-soft); font-size: .78rem; white-space: nowrap; }
+.iara-premium-card p { color: var(--ink-soft); line-height: 1.5; }
 
 .sidebar-logout {
   background: none;
@@ -600,6 +665,13 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
   color: var(--accent);
   border-color: var(--border-strong);
 }
+.sidebar-iara-cta { width: 100%; margin-top: 12px; border: 0; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: space-between; text-align: left; cursor: pointer; color: #fff; background: #641546; box-shadow: 0 12px 24px -14px rgba(77, 10, 82, .9); font-family: inherit; transition: transform .15s ease, box-shadow .15s ease; }
+.sidebar-iara-cta:hover, .sidebar-iara-cta.active { transform: translateY(-1px); box-shadow: 0 16px 28px -13px rgba(77, 10, 82, 1); }
+.sidebar-iara-cta span { display: grid; gap: 2px; }
+.sidebar-iara-cta strong { font-size: 1rem; }
+.sidebar-iara-cta small { color: rgba(255,255,255,.78); font-size: .7rem; }
+.sidebar-sair { color: var(--danger); border-color: rgba(190, 52, 58, .28); }
+.sidebar-sair:hover { color: #fff; background: var(--danger); border-color: var(--danger); }
 
 .sidebar-pwa-alert {
   font-size: 0.76rem;
@@ -685,6 +757,12 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
 }
 .card-stat small { color: var(--ink-soft); font-size: .72rem; line-height: 1.25; }
 
+.cards-grid-principal { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cards-grid-secundario { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 16px; }
+.card-stat-destaque { border-color: color-mix(in srgb, var(--accent) 38%, var(--border)); }
+.card-stat-alerta { border-color: color-mix(in srgb, var(--accent-strong) 45%, var(--border)); }
+.dashboard-indicadores { margin-top: 14px; }
+
 .lista-proximos { display: flex; flex-direction: column; gap: 10px; }
 
 .proximo-item {
@@ -713,6 +791,9 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
 .proximo-item span { color: var(--support-gray); }
 
 .dashboard-prioridades, .dashboard-desempenho { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+.dashboard-detalhes { margin-top: 18px; }
+.dashboard-detalhes summary { cursor: pointer; width: fit-content; color: var(--accent); font-size: .86rem; font-weight: 800; }
+.dashboard-detalhes[open] summary { margin-bottom: -8px; }
 .dashboard-bloco { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); padding: 18px; }
 .dashboard-bloco h3 { margin: 0; font-family: var(--font-heading); font-size: 1rem; color: var(--ink); }
 .dashboard-bloco-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -958,6 +1039,18 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
   color: var(--ink);
 }
 .agendamento-item:hover { border-color: var(--accent-strong); box-shadow: var(--shadow-sm); }
+
+.agendamento-item-dashboard { max-width: none; min-height: 92px; display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; padding: 13px 20px 13px 13px; gap: 16px; cursor: pointer; }
+.agendamento-item-dashboard:hover { transform: translateY(-1px); }
+.agendamento-item-dashboard:focus-visible { outline: 3px solid rgba(124, 28, 93, .3); outline-offset: 2px; }
+.agendamento-momento { width: 96px; flex: 0 0 96px; align-self: stretch; display: grid; align-content: center; justify-items: center; gap: 3px; border-radius: 12px; color: #fff; background: linear-gradient(145deg, var(--accent), var(--accent-strong)); }
+.agendamento-momento strong { color: #fff; font-family: var(--font-heading); font-size: 1.15rem; line-height: 1; }
+.agendamento-momento span { color: rgba(255,255,255,.82); font-size: .69rem; font-weight: 700; text-transform: capitalize; }
+.agendamento-item-dashboard .agendamento-info { gap: 2px; }
+.agendamento-item-dashboard .agendamento-cliente { font-size: 1rem; }
+.agendamento-item-dashboard .agendamento-detalhe { color: var(--ink-soft); }
+.agendamento-valor { color: var(--accent); font-size: .82rem; font-weight: 800; }
+.agendamento-item-dashboard .agendamento-lado { min-width: 150px; gap: 7px; justify-self: end; }
 
 .agendamento-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .agendamento-hora {

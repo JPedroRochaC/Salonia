@@ -19,6 +19,8 @@ import servicosRoutes from "./routes/servicosRoutes.js";
 import profissionaisRoutes from "./routes/profissionaisRoutes.js";
 import portfolioRoutes from "./routes/portfolioRoutes.js";
 import pushRoutes from "./routes/pushRoutes.js";
+import iaraRoutes from "./routes/iaraRoutes.js";
+import whatsappWebhookRoutes from "./routes/whatsappWebhookRoutes.js";
 import { notificarSaloesComAgendaFlexivel } from "./lib/pushNotificacoes.js";
 import { supabase } from "./config/supabase.js";
 
@@ -57,6 +59,8 @@ async function enviarPaginaSalao(req, res) {
 const app = express();
 
 app.use(cors());
+// O webhook precisa receber o corpo bruto para validar a assinatura da Meta.
+app.use("/webhooks/whatsapp", express.raw({ type: "application/json" }), whatsappWebhookRoutes);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -77,6 +81,7 @@ app.use("/admin/api/servicos", servicosRoutes);
 app.use("/admin/api/profissionais", profissionaisRoutes);
 app.use("/admin/api/portfolio", portfolioRoutes);
 app.use("/admin/api/push", pushRoutes);
+app.use("/admin/api/iara", iaraRoutes);
 
 app.get("/api", (req, res) => {
     res.json({ status: "Salonia App online 🚀" });
