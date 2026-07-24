@@ -569,8 +569,6 @@ async function carregarHorarios() {
   el("btnContinuarHorario").hidden = true;
 
   const inicioDia = new Date(`${dataValor}T00:00:00`);
-  const fimDia = new Date(`${dataValor}T23:59:59`);
-
   const { profissional } = estado;
   const diaSemana = inicioDia.getDay();
   const grade = profissional?.horarios_disponiveis || {};
@@ -587,33 +585,47 @@ async function carregarHorarios() {
     criarEl("p", "menu-vazio", "Calculando horários disponíveis...")
   );
 
-  const { data: ocupados, error } = await sb
-    .from("agenda_publica")
-    .select("data_hora")
-    .eq("profissional_id", profissional.id)
-    .gte("data_hora", inicioDia.toISOString())
-    .lte("data_hora", fimDia.toISOString());
-
-  container.innerHTML = "";
-
-  if (error) {
-    console.error("Erro ao carregar horários:", error);
-    container.appendChild(
-      criarEl("p", "menu-vazio", "Erro ao carregar horários. Tente novamente.")
-    );
+  let disponibilidade;
+  try {
+    const params = new URLSearchParams({
+      profissional_id: profissional.id,
+      servico_id: estado.servico.id,
+      data: dataValor,
+    });
+    const resposta = await fetch(`/agendamento/disponibilidade?${params}`);
+    disponibilidade = await resposta.json();
+    if (!resposta.ok || !disponibilidade.ok) throw new Error(disponibilidade.erro);
+  } catch (erro) {
+    console.error("Erro ao carregar disponibilidade:", erro);
+    container.innerHTML = "";
+    container.appendChild(criarEl("p", "menu-vazio", "Erro ao carregar horários. Tente novamente."));
     return;
   }
 
-  const horariosOcupados = new Set(
-    (ocupados || []).map((o) => {
-      const d = new Date(o.data_hora);
-      const pad = (n) => String(n).padStart(2, "0");
-      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    })
-  );
+  container.innerHTML = "";
 
+  const intervalosIndisponiveis = [
+    ...(disponibilidade.agendamentos || []).map((agendamento) => ({
+      inicio: new Date(agendamento.data_hora),
+      fim: new Date(new Date(agendamento.data_hora).getTime() + Number(agendamento.duracao_minutos) * 60000),
+    })),
+    ...(disponibilidade.bloqueios || []).map((bloqueio) => ({
+      inicio: new Date(bloqueio.inicio),
+      fim: new Date(bloqueio.fim),
+    })),
+  ];
+
+  const duracaoServico = Number(estado.servico.duracao_minutos) || 0;
   const livres = [...horariosDoDia]
-    .filter((h) => !horariosOcupados.has(h))
+    .filter((horaTexto) => {
+      const [hora, minuto] = horaTexto.split(":").map(Number);
+      const inicioCandidato = new Date(`${dataValor}T00:00:00`);
+      inicioCandidato.setHours(hora, minuto, 0, 0);
+      const fimCandidato = new Date(inicioCandidato.getTime() + duracaoServico * 60000);
+      return !intervalosIndisponiveis.some(
+        (intervalo) => inicioCandidato < intervalo.fim && fimCandidato > intervalo.inicio,
+      );
+    })
     .sort();
 
   if (livres.length === 0) {

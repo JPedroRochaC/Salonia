@@ -75,6 +75,66 @@ function limitarTentativas(limite) {
   };
 }
 
+router.get("/disponibilidade", async (req, res) => {
+  const { profissional_id: profissionalId, servico_id: servicoId, data } = req.query;
+  if (!profissionalId || !servicoId || !/^\d{4}-\d{2}-\d{2}$/.test(String(data || ""))) {
+    return res.status(400).json({ erro: "Parâmetros de disponibilidade inválidos." });
+  }
+
+  const inicioDia = new Date(`${data}T00:00:00-03:00`);
+  const fimDia = new Date(inicioDia);
+  fimDia.setDate(fimDia.getDate() + 1);
+
+  try {
+    const { data: profissional, error: erroProfissional } = await supabase
+      .from("profissionais")
+      .select("id, salao_id")
+      .eq("id", profissionalId)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (erroProfissional || !profissional) {
+      return res.status(404).json({ erro: "Profissional indisponível." });
+    }
+
+    const { data: vinculo, error: erroVinculo } = await supabase
+      .from("profissional_servicos")
+      .select("servico_id")
+      .eq("profissional_id", profissional.id)
+      .eq("servico_id", servicoId)
+      .maybeSingle();
+    if (erroVinculo || !vinculo) {
+      return res.status(400).json({ erro: "Serviço indisponível para esta profissional." });
+    }
+
+    const [{ data: agendamentos, error: erroAgendamentos }, { data: bloqueios, error: erroBloqueios }] = await Promise.all([
+      supabase
+        .from("agendamentos")
+        .select("data_hora, duracao_minutos")
+        .eq("profissional_id", profissional.id)
+        .in("status", ["aguardando_confirmacao", "aguardando_pagamento", "confirmado"])
+        .lt("data_hora", fimDia.toISOString())
+        .gte("data_hora", new Date(inicioDia.getTime() - 24 * 60 * 60 * 1000).toISOString()),
+      supabase
+        .from("bloqueios_agenda")
+        .select("inicio, fim")
+        .eq("salao_id", profissional.salao_id)
+        .lt("inicio", fimDia.toISOString())
+        .gt("fim", inicioDia.toISOString())
+        .or(`profissional_id.is.null,profissional_id.eq.${profissional.id}`),
+    ]);
+
+    if (erroAgendamentos || erroBloqueios) {
+      console.error("Erro ao consultar disponibilidade:", { erroAgendamentos, erroBloqueios });
+      return res.status(500).json({ erro: "Erro ao consultar disponibilidade." });
+    }
+
+    res.json({ ok: true, agendamentos: agendamentos || [], bloqueios: bloqueios || [] });
+  } catch (erro) {
+    console.error("Erro inesperado na disponibilidade:", erro);
+    res.status(500).json({ erro: "Erro interno ao consultar disponibilidade." });
+  }
+});
+
 router.post("/", limitarTentativas(10), async (req, res) => {
   const {
     salao_id,

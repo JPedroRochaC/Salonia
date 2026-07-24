@@ -127,16 +127,43 @@ html, body { overflow-x: hidden; }
   .login-card { padding: 30px 24px; border-radius: 20px; }
 
   /* Calendário de agendamentos */
-  .calendario-toolbar { gap: 12px; }
-  .calendario-filtro-status .input { min-width: 0; width: 100%; }
+  .calendario-toolbar { flex-direction: column; align-items: stretch; gap: 16px; }
+  .calendario-nav {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .calendario-nav .btn-calendario-seta { width: 38px; height: 38px; }
+  .calendario-nav .btn-calendario-hoje { width: 100%; }
+  .calendario-rotulo {
+    grid-column: 1 / -1;
+    margin: 0;
+    text-align: center;
+    white-space: normal;
+    font-size: 0.94rem;
+  }
+  .calendario-acoes {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    gap: 10px;
+  }
+  .calendario-campo { min-width: 0; }
+  .calendario-acoes .input { min-width: 0; width: 100%; }
+  .calendario-acoes .btn { width: 100%; min-height: 44px; padding-inline: 10px; }
   .calendario-semana { min-width: 0; width: 100%; }
-  .calendario-semana { --cal-hora-altura: 60px; --cal-largura-gutter: 44px; }
+  .calendario-semana { --cal-hora-altura: 76px; --cal-largura-gutter: 48px; }
   .cal-cabecalho { top: var(--header-h); }
   .cal-hora-label { scroll-margin-top: calc(var(--header-h) + 60px); }
   .cal-dia-nome { font-size: 0.62rem; }
   .cal-dia-numero { width: 24px; height: 24px; font-size: 0.9rem; }
-  .cal-evento { font-size: 0.68rem; padding: 3px 5px; }
-  .agendamento-popover { padding: 20px 18px 18px; }
+  .cal-evento { font-size: 0.76rem; padding: 4px 7px; }
+  .agendamento-popover-overlay { padding: 12px; }
+  .agendamento-popover { width: 100%; max-height: calc(100dvh - 24px); padding: 22px 18px 18px; }
+  .form-agendamento-grid { grid-template-columns: 1fr; gap: 4px; }
 
   /* No mobile a semana some e vira seleção de 1 dia por vez, com abas
      deslizáveis — 7 colunas espremidas não cabiam bem na tela pequena. */
@@ -183,12 +210,12 @@ html, body { overflow-x: hidden; }
   .cal-chip-dia-hoje .cal-chip-dia-nome { color: var(--accent-strong); }
 
   .cal-chip-dia-ativo {
-    background: var(--brand-coffee);
-    border-color: var(--brand-coffee);
+    background: var(--brand-brown);
+    border-color: var(--brand-brown);
   }
   .cal-chip-dia-ativo .cal-chip-dia-nome,
   .cal-chip-dia-ativo .cal-chip-dia-numero { color: var(--ink-on-dark); }
-  .cal-chip-dia-ativo.cal-chip-dia-hoje .cal-chip-dia-nome { color: var(--brand-rose); }
+  .cal-chip-dia-ativo.cal-chip-dia-hoje .cal-chip-dia-nome { color: var(--brand-red); }
 }
 
 /* ===== CELULAR PEQUENO (até 420px) ===== */
@@ -202,6 +229,12 @@ html, body { overflow-x: hidden; }
   .agendamentos-filtros > div { min-width: 100%; }
 
   .btn { padding: 11px 18px; font-size: 0.9rem; }
+
+  .calendario-acoes { grid-template-columns: 1fr; }
+  .calendario-nav { gap: 6px; }
+  .calendario-rotulo { font-size: 0.88rem; }
+  .calendario-dias-mobile { margin-inline: -2px; }
+  .cal-chip-dia { min-width: 44px; }
 
   .grid-portfolio { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .portfolio-card img { height: 120px; }

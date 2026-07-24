@@ -323,7 +323,8 @@
                 <strong id="calendarioRotuloSemana" class="calendario-rotulo">—</strong>
               </div>
 
-              <div class="calendario-filtro-status">
+              <div class="calendario-acoes">
+                <div class="calendario-campo">
                 <label for="filtroStatus">Status</label>
                 <select id="filtroStatus" class="input">
                   <option value="">Todos</option>
@@ -333,6 +334,15 @@
                   <option value="concluido">Concluído</option>
                   <option value="cancelado">Cancelado</option>
                 </select>
+                </div>
+                <div class="calendario-campo">
+                <label for="filtroProfissional">Profissional</label>
+                <select id="filtroProfissional" class="input">
+                  <option value="">Todas</option>
+                </select>
+                </div>
+                <button type="button" id="btnNovoBloqueio" class="btn btn-outline">Bloquear horário</button>
+                <button type="button" id="btnNovoAgendamento" class="btn btn-primary">+ Novo agendamento</button>
               </div>
             </div>
 
@@ -416,6 +426,67 @@
           <div class="agendamento-popover" role="dialog" aria-modal="true" aria-labelledby="agendamentoPopoverTitulo">
             <button type="button" id="btnFecharAgendamentoPopover" class="sidebar-close" aria-label="Fechar">×</button>
             <div id="agendamentoPopoverCorpo"></div>
+          </div>
+        </div>
+        <div id="novoAgendamentoOverlay" class="agendamento-popover-overlay" hidden>
+          <div class="agendamento-popover agendamento-form-modal" role="dialog" aria-modal="true" aria-labelledby="novoAgendamentoTitulo">
+            <button type="button" id="btnFecharNovoAgendamento" class="sidebar-close" aria-label="Fechar">&times;</button>
+            <h3 id="novoAgendamentoTitulo">Novo agendamento</h3>
+            <p class="conteudo-sub">Cadastre um horário manualmente na agenda.</p>
+            <form id="formNovoAgendamento" class="form-config form-agendamento">
+              <div class="form-agendamento-grid">
+                <div><label for="novoAgendamentoNome">Nome da cliente</label><input id="novoAgendamentoNome" class="input" type="text" autocomplete="name" required /></div>
+                <div><label for="novoAgendamentoTelefone">WhatsApp</label><input id="novoAgendamentoTelefone" class="input" type="tel" inputmode="numeric" autocomplete="tel" required /></div>
+                <div><label for="novoAgendamentoServico">Serviço</label><select id="novoAgendamentoServico" class="input" required></select></div>
+                <div><label for="novoAgendamentoProfissional">Profissional</label><select id="novoAgendamentoProfissional" class="input" required></select></div>
+                <div><label for="novoAgendamentoDataHora">Data e horário</label><input id="novoAgendamentoDataHora" class="input" type="datetime-local" required /></div>
+                <div><label for="novoAgendamentoStatus">Status inicial</label><select id="novoAgendamentoStatus" class="input"><option value="confirmado">Confirmado</option><option value="aguardando_confirmacao">Aguardando confirmação</option><option value="aguardando_pagamento">Aguardando pagamento</option></select></div>
+              </div>
+              <p id="novoAgendamentoErro" class="erro-envio" hidden></p>
+              <div class="faq-form-botoes">
+                <button type="submit" id="btnSalvarNovoAgendamento" class="btn btn-primary">Salvar agendamento</button>
+                <button type="button" id="btnCancelarNovoAgendamento" class="btn btn-outline">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div id="reagendarOverlay" class="agendamento-popover-overlay" hidden>
+          <div class="agendamento-popover agendamento-form-modal" role="dialog" aria-modal="true" aria-labelledby="reagendarTitulo">
+            <button type="button" id="btnFecharReagendar" class="sidebar-close" aria-label="Fechar">&times;</button>
+            <h3 id="reagendarTitulo">Reagendar atendimento</h3>
+            <p id="reagendarCliente" class="conteudo-sub"></p>
+            <form id="formReagendar" class="form-config form-agendamento">
+              <div class="form-agendamento-grid">
+                <div><label for="reagendarServico">Serviço</label><select id="reagendarServico" class="input" required></select></div>
+                <div><label for="reagendarProfissional">Profissional</label><select id="reagendarProfissional" class="input" required></select></div>
+                <div><label for="reagendarDataHora">Nova data e horário</label><input id="reagendarDataHora" class="input" type="datetime-local" required /></div>
+              </div>
+              <p id="reagendarErro" class="erro-envio" hidden></p>
+              <div class="faq-form-botoes">
+                <button type="submit" id="btnSalvarReagendar" class="btn btn-primary">Salvar alteração</button>
+                <button type="button" id="btnCancelarReagendar" class="btn btn-outline">Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div id="bloqueioOverlay" class="agendamento-popover-overlay" hidden>
+          <div class="agendamento-popover agendamento-form-modal" role="dialog" aria-modal="true" aria-labelledby="bloqueioTitulo">
+            <button type="button" id="btnFecharBloqueio" class="sidebar-close" aria-label="Fechar">&times;</button>
+            <h3 id="bloqueioTitulo">Bloquear horário</h3>
+            <p class="conteudo-sub">Use para folgas, férias ou indisponibilidades.</p>
+            <form id="formBloqueio" class="form-config form-agendamento">
+              <div class="form-agendamento-grid">
+                <div><label for="bloqueioProfissional">Profissional</label><select id="bloqueioProfissional" class="input"><option value="">Todo o salão</option></select></div>
+                <div><label for="bloqueioMotivo">Motivo</label><input id="bloqueioMotivo" class="input" type="text" placeholder="Ex.: Férias" /></div>
+                <div><label for="bloqueioInicio">Início</label><input id="bloqueioInicio" class="input" type="datetime-local" required /></div>
+                <div><label for="bloqueioFim">Fim</label><input id="bloqueioFim" class="input" type="datetime-local" required /></div>
+              </div>
+              <p id="bloqueioErro" class="erro-envio" hidden></p>
+              <div class="faq-form-botoes">
+                <button type="submit" id="btnSalvarBloqueio" class="btn btn-primary">Salvar bloqueio</button>
+                <button type="button" id="btnCancelarBloqueio" class="btn btn-outline">Cancelar</button>
+              </div>
+            </form>
           </div>
         </div>
       </main>

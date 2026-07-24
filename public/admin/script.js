@@ -65,6 +65,14 @@ function formatarMoeda(valor) {
   });
 }
 
+function aplicarMascaraTelefone(valor) {
+  return String(valor || "")
+    .replace(/\D/g, "")
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2")
+    .slice(0, 15);
+}
+
 // ============================================================
 // NOTIFICAÇÕES PUSH
 // ============================================================
@@ -658,8 +666,10 @@ const ROTULOS_STATUS = {
   cancelado: "Cancelado",
 };
 
-// Precisa bater com --cal-hora-altura definido em style.css
-const ROW_HEIGHT_PX = 60;
+// Precisa bater com --cal-hora-altura definido em style.css. Uma hora maior
+// deixa os atendimentos curtos legíveis, sem transformar o calendário numa
+// lista apertada de texto cortado.
+const ROW_HEIGHT_PX = 76;
 const DIAS_SEMANA = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const MESES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -682,7 +692,7 @@ function ehMobile() {
 
 mediaMobile.addEventListener("change", () => {
   if (ultimoResultadoSemana) {
-    renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia);
+    renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia, ultimoResultadoSemana.bloqueios);
   }
 });
 
@@ -716,6 +726,29 @@ el("btnSemanaHoje").addEventListener("click", () => {
   carregarAgendamentos();
 });
 el("filtroStatus").addEventListener("change", carregarAgendamentos);
+el("filtroProfissional").addEventListener("change", carregarAgendamentos);
+
+let filtroProfissionaisCarregado = false;
+
+async function carregarFiltroProfissionais() {
+  if (filtroProfissionaisCarregado) return;
+
+  const select = el("filtroProfissional");
+  try {
+    const { profissionais } = await chamarApi("/admin/api/profissionais");
+    (profissionais || [])
+      .filter((profissional) => profissional.ativo)
+      .forEach((profissional) => {
+        const opcao = document.createElement("option");
+        opcao.value = profissional.id;
+        opcao.textContent = profissional.nome;
+        select.appendChild(opcao);
+      });
+    filtroProfissionaisCarregado = true;
+  } catch (err) {
+    console.error("Erro ao carregar filtro de profissionais:", err);
+  }
+}
 
 // No mobile navega 1 dia por vez (combina com a visão de 1 dia); no
 // desktop navega semana inteira. Só busca de novo na API quando a
@@ -737,7 +770,7 @@ function navegarCalendario(direcao) {
     } else {
       diaSelecionadoIndice = novoIndice;
       if (ultimoResultadoSemana) {
-        renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia);
+        renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia, ultimoResultadoSemana.bloqueios);
       }
     }
     return;
@@ -754,6 +787,8 @@ async function carregarAgendamentos() {
   const vazio = el("agendamentosVazio");
   vazio.hidden = true;
 
+  await carregarFiltroProfissionais();
+
   const inicio = inicioDaSemana(semanaReferencia);
   const diasDaSemana = [];
   for (let i = 0; i < 7; i++) {
@@ -763,6 +798,7 @@ async function carregarAgendamentos() {
   }
 
   const status = el("filtroStatus").value;
+  const profissionalId = el("filtroProfissional").value;
   grid.innerHTML = '<p class="cal-vazia-semana">Carregando…</p>';
 
   try {
@@ -771,6 +807,7 @@ async function carregarAgendamentos() {
       diasDaSemana.map((d) => {
         const params = new URLSearchParams({ data: formatarDataISO(d) });
         if (status) params.set("status", status);
+        if (profissionalId) params.set("profissional_id", profissionalId);
         return chamarApi(`/admin/api/agendamentos?${params}`)
           .then((r) => r.agendamentos || [])
           .catch(() => []);
@@ -780,7 +817,15 @@ async function carregarAgendamentos() {
     const totalEventos = resultadosPorDia.reduce((soma, lista) => soma + lista.length, 0);
     vazio.hidden = totalEventos > 0;
 
-    renderizarCalendarioSemana(diasDaSemana, resultadosPorDia);
+    const fimSemana = new Date(diasDaSemana[6]);
+    fimSemana.setDate(fimSemana.getDate() + 1);
+    const { bloqueios } = await chamarApi(
+      `/admin/api/agendamentos/bloqueios?${new URLSearchParams({
+        inicio: diasDaSemana[0].toISOString(),
+        fim: fimSemana.toISOString(),
+      })}`,
+    );
+    renderizarCalendarioSemana(diasDaSemana, resultadosPorDia, bloqueios || []);
   } catch (err) {
     console.error("Erro ao carregar agendamentos:", err);
     grid.innerHTML = '<p class="cal-vazia-semana">Não foi possível carregar os agendamentos.</p>';
@@ -812,8 +857,8 @@ function atualizarRotulo(dias, mobile) {
     : `${inicioSemana.getDate()} de ${MESES_ABREV[inicioSemana.getMonth()]}. – ${fimSemana.getDate()} de ${MESES_ABREV[fimSemana.getMonth()]}. de ${fimSemana.getFullYear()}`;
 }
 
-function renderizarCalendarioSemana(dias, eventosPorDia) {
-  ultimoResultadoSemana = { dias, eventosPorDia };
+function renderizarCalendarioSemana(dias, eventosPorDia, bloqueios = []) {
+  ultimoResultadoSemana = { dias, eventosPorDia, bloqueios };
 
   const grid = el("calendarioSemana");
   const hoje = new Date();
@@ -877,28 +922,60 @@ function renderizarCalendarioSemana(dias, eventosPorDia) {
     const eventos = calcularLayoutEventos(eventosPorDia[indiceDia] || []);
 
     let eventosHtml = "";
+    let bloqueiosHtml = "";
+    const inicioDia = new Date(d);
+    inicioDia.setHours(0, 0, 0, 0);
+    const fimDia = new Date(inicioDia);
+    fimDia.setDate(fimDia.getDate() + 1);
+
+    bloqueios
+      .filter((bloqueio) => new Date(bloqueio.inicio) < fimDia && new Date(bloqueio.fim) > inicioDia)
+      .forEach((bloqueio) => {
+        const inicioVisivel = new Date(Math.max(new Date(bloqueio.inicio).getTime(), inicioDia.getTime()));
+        const fimVisivel = new Date(Math.min(new Date(bloqueio.fim).getTime(), fimDia.getTime()));
+        const minutosInicio = (inicioVisivel.getHours() - horaMin) * 60 + inicioVisivel.getMinutes();
+        const minutosFim = (fimVisivel.getHours() - horaMin) * 60 + fimVisivel.getMinutes();
+        const topBloqueio = Math.max(0, minutosInicio / 60 * ROW_HEIGHT_PX);
+        const alturaBloqueio = Math.max(24, (minutosFim - minutosInicio) / 60 * ROW_HEIGHT_PX);
+        const rotuloBloqueio = bloqueio.motivo || (bloqueio.profissionais?.nome
+          ? `Indisponível · ${bloqueio.profissionais.nome}`
+          : "Salão indisponível");
+
+        bloqueiosHtml += `
+          <button type="button" class="cal-bloqueio" data-bloqueio-id="${bloqueio.id}"
+            style="top:${topBloqueio}px; height:${alturaBloqueio}px;" title="Clique para remover">
+            ${escaparHtml(rotuloBloqueio)}
+          </button>`;
+      });
+
     eventos.forEach(({ ag, coluna, totalColunas }) => {
       const inicioEvento = new Date(ag.data_hora);
       const minutosDesdeInicioGrid = (inicioEvento.getHours() - horaMin) * 60 + inicioEvento.getMinutes();
       const top = (minutosDesdeInicioGrid / 60) * ROW_HEIGHT_PX;
-      const altura = Math.max((ag.duracao_minutos / 60) * ROW_HEIGHT_PX, 22);
+      const altura = Math.max((ag.duracao_minutos / 60) * ROW_HEIGHT_PX, 26);
       const largura = 100 / totalColunas;
       const esquerda = largura * coluna;
       const hora = inicioEvento.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-      const ehCurto = ag.duracao_minutos < 40;
+      // Usa o espaço real do cartão para decidir se cabe o detalhe completo.
+      const ehCompacto = altura < 54;
+      const ehMicro = altura < 34;
+      const detalhe = altura >= 54
+        ? `${escaparHtml(ag.servicos?.nome || "")} · ${escaparHtml(ag.profissionais?.nome || "")}`
+        : "";
       eventosHtml += `
-        <div class="cal-evento cal-evento-${ag.status}${ehCurto ? " cal-evento--curto" : ""}"
+        <div class="cal-evento cal-evento-${ag.status}${ehCompacto ? " cal-evento--compacto" : ""}${ehMicro ? " cal-evento--micro" : ""}"
              style="top:${top}px; height:${altura}px; left:calc(${esquerda}% + 2px); width:calc(${largura}% - 4px);"
              data-id="${ag.id}">
           <span class="cal-evento-hora">${hora}</span>
           <span class="cal-evento-cliente">${escaparHtml(ag.clientes?.nome || "Cliente")}</span>
-          <span class="cal-evento-detalhe">${escaparHtml(ag.servicos?.nome || "")}</span>
+          ${detalhe ? `<span class="cal-evento-detalhe">${detalhe}</span>` : ""}
         </div>`;
     });
 
     colunasHtml += `
       <div class="cal-dia-coluna${ehHoje ? " cal-dia-coluna-hoje" : ""}" style="height:${totalHoras * ROW_HEIGHT_PX}px;" data-dia="${indiceDia}">
+        ${bloqueiosHtml}
         ${eventosHtml}
       </div>`;
   });
@@ -920,6 +997,40 @@ function renderizarCalendarioSemana(dias, eventosPorDia) {
     elemento.addEventListener("click", () => {
       const ag = mapaEventos[elemento.dataset.id];
       if (ag) abrirDetalheAgendamento(ag);
+    });
+  });
+
+  grid.querySelectorAll(".cal-bloqueio").forEach((elemento) => {
+    elemento.addEventListener("click", async () => {
+      if (!confirm("Remover este bloqueio da agenda?")) return;
+      try {
+        await chamarApi(`/admin/api/agendamentos/bloqueios/${elemento.dataset.bloqueioId}`, {
+          method: "DELETE",
+        });
+        carregarAgendamentos();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+
+  // Um clique em um espaço livre abre o novo agendamento com o horário
+  // aproximado já preenchido. Eventos existentes continuam abrindo detalhes.
+  grid.querySelectorAll(".cal-dia-coluna").forEach((coluna) => {
+    coluna.addEventListener("click", (evento) => {
+      if (evento.target.closest(".cal-evento, .cal-bloqueio")) return;
+
+      const indiceDia = Number(coluna.dataset.dia);
+      const retangulo = coluna.getBoundingClientRect();
+      const minutosNoGrid = Math.max(0, evento.clientY - retangulo.top) / ROW_HEIGHT_PX * 60;
+      const minutosArredondados = Math.min(
+        totalHoras * 60 - 15,
+        Math.max(0, Math.round(minutosNoGrid / 15) * 15),
+      );
+      const data = new Date(dias[indiceDia]);
+      data.setHours(horaMin, 0, 0, 0);
+      data.setMinutes(data.getMinutes() + minutosArredondados);
+      abrirNovoAgendamento(data);
     });
   });
 
@@ -954,7 +1065,7 @@ function renderizarChipsDias(dias, hoje) {
     chip.addEventListener("click", () => {
       diaSelecionadoIndice = indice;
       if (ultimoResultadoSemana) {
-        renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia);
+        renderizarCalendarioSemana(ultimoResultadoSemana.dias, ultimoResultadoSemana.eventosPorDia, ultimoResultadoSemana.bloqueios);
       }
     });
 
@@ -1103,6 +1214,17 @@ function abrirDetalheAgendamento(ag) {
     window.open(`https://wa.me/55${telefoneLimpo}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
   };
 
+  if (["aguardando_pagamento", "aguardando_confirmacao", "confirmado"].includes(ag.status)) {
+    const reagendar = document.createElement("button");
+    reagendar.className = "btn-mini";
+    reagendar.textContent = "Reagendar";
+    reagendar.addEventListener("click", () => {
+      fecharDetalheAgendamento();
+      abrirReagendar(ag);
+    });
+    acoes.appendChild(reagendar);
+  }
+
   if (ag.status === "aguardando_pagamento" || ag.status === "aguardando_confirmacao") {
     acoes.appendChild(botao("Confirmar", "confirmado", "btn-mini-primary", enviarConfirmacaoWhatsapp));
     acoes.appendChild(botao("Cancelar", "cancelado", "btn-mini-perigo"));
@@ -1138,6 +1260,327 @@ async function mudarStatusAgendamento(id, novoStatus) {
     alert(err.message);
   }
 }
+
+// ============================================================
+// NOVO AGENDAMENTO PELO PAINEL
+// ============================================================
+let dadosNovoAgendamento = { servicos: [], profissionais: [] };
+
+function fecharNovoAgendamento() {
+  el("novoAgendamentoOverlay").hidden = true;
+  el("novoAgendamentoErro").hidden = true;
+}
+
+function preencherProfissionaisNovoAgendamento() {
+  const selectServico = el("novoAgendamentoServico");
+  const selectProfissional = el("novoAgendamentoProfissional");
+  const servicoId = selectServico.value;
+  const profissionais = dadosNovoAgendamento.profissionais.filter(
+    (profissional) => profissional.ativo && profissional.servico_ids?.includes(servicoId),
+  );
+
+  selectProfissional.innerHTML = "";
+  if (profissionais.length === 0) {
+    const opcao = document.createElement("option");
+    opcao.value = "";
+    opcao.textContent = "Nenhuma profissional disponível";
+    selectProfissional.appendChild(opcao);
+    selectProfissional.disabled = true;
+    return;
+  }
+
+  selectProfissional.disabled = false;
+  profissionais.forEach((profissional) => {
+    const opcao = document.createElement("option");
+    opcao.value = profissional.id;
+    opcao.textContent = profissional.nome;
+    selectProfissional.appendChild(opcao);
+  });
+}
+
+function dataHoraLocalParaInput(data) {
+  const ajustar = new Date(data.getTime() - data.getTimezoneOffset() * 60 * 1000);
+  return ajustar.toISOString().slice(0, 16);
+}
+
+async function abrirNovoAgendamento(dataHoraPreenchida = null) {
+  const erro = el("novoAgendamentoErro");
+  erro.hidden = true;
+  el("novoAgendamentoOverlay").hidden = false;
+
+  try {
+    const [{ servicos }, { profissionais }] = await Promise.all([
+      chamarApi("/admin/api/servicos"),
+      chamarApi("/admin/api/profissionais"),
+    ]);
+    dadosNovoAgendamento = {
+      servicos: (servicos || []).filter((servico) => servico.ativo),
+      profissionais: profissionais || [],
+    };
+
+    const selectServico = el("novoAgendamentoServico");
+    selectServico.innerHTML = "";
+    dadosNovoAgendamento.servicos.forEach((servico) => {
+      const opcao = document.createElement("option");
+      opcao.value = servico.id;
+      opcao.textContent = `${servico.nome} — ${formatarMoeda(servico.preco)}`;
+      selectServico.appendChild(opcao);
+    });
+
+    if (dadosNovoAgendamento.servicos.length === 0) {
+      erro.textContent = "Cadastre um serviço ativo antes de criar um agendamento.";
+      erro.hidden = false;
+      el("btnSalvarNovoAgendamento").disabled = true;
+      return;
+    }
+
+    el("btnSalvarNovoAgendamento").disabled = false;
+    preencherProfissionaisNovoAgendamento();
+
+    const agora = dataHoraPreenchida ? new Date(dataHoraPreenchida) : new Date();
+    if (!dataHoraPreenchida) {
+      agora.setMinutes(Math.ceil(agora.getMinutes() / 15) * 15, 0, 0);
+    }
+    el("novoAgendamentoDataHora").min = dataHoraLocalParaInput(new Date());
+    el("novoAgendamentoDataHora").value = dataHoraLocalParaInput(agora);
+  } catch (err) {
+    erro.textContent = err.message || "Não foi possível carregar os dados da agenda.";
+    erro.hidden = false;
+    el("btnSalvarNovoAgendamento").disabled = true;
+  }
+}
+
+el("btnNovoAgendamento").addEventListener("click", () => abrirNovoAgendamento());
+el("btnFecharNovoAgendamento").addEventListener("click", fecharNovoAgendamento);
+el("btnCancelarNovoAgendamento").addEventListener("click", fecharNovoAgendamento);
+el("novoAgendamentoOverlay").addEventListener("click", (evento) => {
+  if (evento.target === el("novoAgendamentoOverlay")) fecharNovoAgendamento();
+});
+el("novoAgendamentoServico").addEventListener("change", preencherProfissionaisNovoAgendamento);
+el("novoAgendamentoTelefone").addEventListener("input", (evento) => {
+  evento.target.value = aplicarMascaraTelefone(evento.target.value);
+});
+el("formNovoAgendamento").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const erro = el("novoAgendamentoErro");
+  const botao = el("btnSalvarNovoAgendamento");
+  const dataHoraLocal = el("novoAgendamentoDataHora").value;
+  erro.hidden = true;
+
+  if (!dataHoraLocal || !el("novoAgendamentoProfissional").value) {
+    erro.textContent = "Escolha serviço, profissional, data e horário.";
+    erro.hidden = false;
+    return;
+  }
+
+  botao.disabled = true;
+  botao.textContent = "Salvando...";
+  try {
+    await chamarApi("/admin/api/agendamentos", {
+      method: "POST",
+      body: JSON.stringify({
+        nome: el("novoAgendamentoNome").value,
+        telefone: el("novoAgendamentoTelefone").value,
+        servico_id: el("novoAgendamentoServico").value,
+        profissional_id: el("novoAgendamentoProfissional").value,
+        data_hora: new Date(dataHoraLocal).toISOString(),
+        status: el("novoAgendamentoStatus").value,
+      }),
+    });
+
+    semanaReferencia = new Date(dataHoraLocal);
+    diaSelecionadoIndice = null;
+    el("formNovoAgendamento").reset();
+    fecharNovoAgendamento();
+    carregarAgendamentos();
+    carregarDashboard();
+  } catch (err) {
+    erro.textContent = err.message || "Não foi possível salvar o agendamento.";
+    erro.hidden = false;
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Salvar agendamento";
+  }
+});
+
+// ============================================================
+// REAGENDAMENTO E BLOQUEIOS
+// ============================================================
+let agendamentoReagendando = null;
+let dadosAgendaFormulario = { servicos: [], profissionais: [] };
+
+async function carregarDadosAgendaFormulario() {
+  const [{ servicos }, { profissionais }] = await Promise.all([
+    chamarApi("/admin/api/servicos"),
+    chamarApi("/admin/api/profissionais"),
+  ]);
+  dadosAgendaFormulario = {
+    servicos: (servicos || []).filter((servico) => servico.ativo),
+    profissionais: (profissionais || []).filter((profissional) => profissional.ativo),
+  };
+}
+
+function preencherSelectServicos(selectId, selecionadoId) {
+  const select = el(selectId);
+  select.innerHTML = "";
+  dadosAgendaFormulario.servicos.forEach((servico) => {
+    const opcao = document.createElement("option");
+    opcao.value = servico.id;
+    opcao.textContent = `${servico.nome} — ${formatarMoeda(servico.preco)}`;
+    opcao.selected = servico.id === selecionadoId;
+    select.appendChild(opcao);
+  });
+}
+
+function preencherSelectProfissionais(selectId, servicoId, selecionadoId) {
+  const select = el(selectId);
+  const profissionais = dadosAgendaFormulario.profissionais.filter(
+    (profissional) => profissional.servico_ids?.includes(servicoId),
+  );
+  select.innerHTML = "";
+  profissionais.forEach((profissional) => {
+    const opcao = document.createElement("option");
+    opcao.value = profissional.id;
+    opcao.textContent = profissional.nome;
+    opcao.selected = profissional.id === selecionadoId;
+    select.appendChild(opcao);
+  });
+  select.disabled = profissionais.length === 0;
+}
+
+function fecharReagendar() {
+  el("reagendarOverlay").hidden = true;
+  el("reagendarErro").hidden = true;
+  agendamentoReagendando = null;
+}
+
+async function abrirReagendar(agendamento) {
+  agendamentoReagendando = agendamento;
+  el("reagendarOverlay").hidden = false;
+  el("reagendarErro").hidden = true;
+  el("reagendarCliente").textContent = `Reagendando ${agendamento.clientes?.nome || "cliente"}.`;
+
+  try {
+    await carregarDadosAgendaFormulario();
+    preencherSelectServicos("reagendarServico", agendamento.servico_id);
+    preencherSelectProfissionais(
+      "reagendarProfissional",
+      el("reagendarServico").value,
+      agendamento.profissional_id,
+    );
+    el("reagendarDataHora").value = dataHoraLocalParaInput(new Date(agendamento.data_hora));
+  } catch (err) {
+    el("reagendarErro").textContent = err.message || "Não foi possível carregar os dados.";
+    el("reagendarErro").hidden = false;
+  }
+}
+
+el("reagendarServico").addEventListener("change", () => {
+  preencherSelectProfissionais("reagendarProfissional", el("reagendarServico").value);
+});
+el("btnFecharReagendar").addEventListener("click", fecharReagendar);
+el("btnCancelarReagendar").addEventListener("click", fecharReagendar);
+el("reagendarOverlay").addEventListener("click", (evento) => {
+  if (evento.target === el("reagendarOverlay")) fecharReagendar();
+});
+el("formReagendar").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  if (!agendamentoReagendando) return;
+
+  const erro = el("reagendarErro");
+  const botao = el("btnSalvarReagendar");
+  erro.hidden = true;
+  botao.disabled = true;
+  botao.textContent = "Salvando...";
+
+  try {
+    const dataHora = new Date(el("reagendarDataHora").value);
+    await chamarApi(`/admin/api/agendamentos/${agendamentoReagendando.id}/reagendar`, {
+      method: "PUT",
+      body: JSON.stringify({
+        servico_id: el("reagendarServico").value,
+        profissional_id: el("reagendarProfissional").value,
+        data_hora: dataHora.toISOString(),
+      }),
+    });
+    semanaReferencia = dataHora;
+    diaSelecionadoIndice = null;
+    fecharReagendar();
+    carregarAgendamentos();
+    carregarDashboard();
+  } catch (err) {
+    erro.textContent = err.message || "Não foi possível reagendar.";
+    erro.hidden = false;
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Salvar alteração";
+  }
+});
+
+function fecharBloqueio() {
+  el("bloqueioOverlay").hidden = true;
+  el("bloqueioErro").hidden = true;
+}
+
+async function abrirBloqueio() {
+  el("bloqueioOverlay").hidden = false;
+  el("bloqueioErro").hidden = true;
+  try {
+    await carregarDadosAgendaFormulario();
+    const select = el("bloqueioProfissional");
+    select.innerHTML = '<option value="">Todo o salão</option>';
+    dadosAgendaFormulario.profissionais.forEach((profissional) => {
+      const opcao = document.createElement("option");
+      opcao.value = profissional.id;
+      opcao.textContent = profissional.nome;
+      select.appendChild(opcao);
+    });
+
+    const inicio = new Date();
+    inicio.setMinutes(Math.ceil(inicio.getMinutes() / 15) * 15, 0, 0);
+    const fim = new Date(inicio.getTime() + 60 * 60 * 1000);
+    el("bloqueioInicio").value = dataHoraLocalParaInput(inicio);
+    el("bloqueioFim").value = dataHoraLocalParaInput(fim);
+  } catch (err) {
+    el("bloqueioErro").textContent = err.message || "Não foi possível carregar profissionais.";
+    el("bloqueioErro").hidden = false;
+  }
+}
+
+el("btnNovoBloqueio").addEventListener("click", abrirBloqueio);
+el("btnFecharBloqueio").addEventListener("click", fecharBloqueio);
+el("btnCancelarBloqueio").addEventListener("click", fecharBloqueio);
+el("bloqueioOverlay").addEventListener("click", (evento) => {
+  if (evento.target === el("bloqueioOverlay")) fecharBloqueio();
+});
+el("formBloqueio").addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const erro = el("bloqueioErro");
+  const botao = el("btnSalvarBloqueio");
+  erro.hidden = true;
+  botao.disabled = true;
+  botao.textContent = "Salvando...";
+
+  try {
+    await chamarApi("/admin/api/agendamentos/bloqueios", {
+      method: "POST",
+      body: JSON.stringify({
+        profissional_id: el("bloqueioProfissional").value || null,
+        inicio: new Date(el("bloqueioInicio").value).toISOString(),
+        fim: new Date(el("bloqueioFim").value).toISOString(),
+        motivo: el("bloqueioMotivo").value,
+      }),
+    });
+    fecharBloqueio();
+    carregarAgendamentos();
+  } catch (err) {
+    erro.textContent = err.message || "Não foi possível salvar o bloqueio.";
+    erro.hidden = false;
+  } finally {
+    botao.disabled = false;
+    botao.textContent = "Salvar bloqueio";
+  }
+});
 
 // ============================================================
 // SUB-ABAS (Serviços / Profissionais)
