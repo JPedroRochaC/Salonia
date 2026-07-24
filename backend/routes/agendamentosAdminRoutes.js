@@ -347,4 +347,27 @@ router.get("/:id/referencia", requireAuth, async (req, res) => {
   res.redirect(assinada.signedUrl);
 });
 
+// O comprovante também fica privado; a dona vê apenas por uma URL temporária.
+router.get("/:id/comprovante", requireAuth, async (req, res) => {
+  const { data: agendamento, error } = await supabase
+    .from("agendamentos")
+    .select("comprovante_url")
+    .eq("id", req.params.id)
+    .eq("salao_id", req.salao.id)
+    .maybeSingle();
+  if (error) return res.status(500).json({ erro: "Erro ao buscar o comprovante." });
+  if (!agendamento?.comprovante_url) return res.status(404).json({ erro: "Comprovante não encontrado." });
+
+  const comprovante = agendamento.comprovante_url;
+  if (/^https?:\/\//i.test(comprovante)) return res.redirect(comprovante);
+  const { data: assinada, error: erroAssinada } = await supabase.storage
+    .from("comprovantes")
+    .createSignedUrl(comprovante, 60 * 5);
+  if (erroAssinada || !assinada?.signedUrl) {
+    console.error("Erro ao assinar comprovante:", erroAssinada);
+    return res.status(500).json({ erro: "Erro ao abrir o comprovante." });
+  }
+  res.redirect(assinada.signedUrl);
+});
+
 export default router;

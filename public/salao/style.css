@@ -459,6 +459,29 @@ h3 {
   font-family: inherit;
 }
 
+.home-conteudo {
+  width: min(680px, calc(100% - 40px));
+  margin: -12px auto 32px;
+}
+.home-links { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.home-destaques { margin-top: 28px; }
+.home-destaques h2 { font-size: 1.05rem; margin-bottom: 12px; }
+.home-servicos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.home-servico {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 15px;
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  border: 1px solid var(--border-soft);
+  color: var(--brown);
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+}
+.home-servico:hover { border-color: var(--accent); }
+.home-servico span { color: var(--brown-soft); font-size: .82rem; }
+
 .data-atendimento-label {
   display: block;
   margin: 2px 0 7px;
@@ -471,6 +494,17 @@ h3 {
   margin-bottom: 0;
   font-weight: 700;
 }
+.calendario-datas { display: flex; gap: 8px; overflow-x: auto; padding: 3px 1px 12px; margin-top: 8px; -webkit-overflow-scrolling: touch; }
+.data-manual { margin-top: 2px; }
+.data-manual summary { color: var(--brown-soft); font-size: .82rem; font-weight: 700; cursor: pointer; width: fit-content; }
+.data-manual[open] summary { margin-bottom: 8px; }
+.data-manual .input-data { width: 100%; }
+.data-chip { flex: 0 0 88px; min-height: 74px; border: 1px solid var(--border-soft); background: var(--cream); border-radius: var(--radius-sm); color: var(--brown); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-family: inherit; cursor: pointer; text-transform: capitalize; }
+.data-chip span, .data-chip small { font-size: .68rem; color: var(--brown-soft); white-space: nowrap; }
+.data-chip strong { font-size: 1.15rem; }
+.data-chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+.data-chip.selected span, .data-chip.selected small { color: rgba(255,255,255,.78); }
+.calendario-datas-carregando, .calendario-datas-vazio { color: var(--brown-soft); font-size: .85rem; padding: 10px 0; }
 
 .slot-grid {
   display: grid;
@@ -962,6 +996,7 @@ select {
   .hero-salao {
     padding: 40px 20px;
   }
+  .home-servicos { grid-template-columns: 1fr; }
 
   .wizard {
     padding: 20px 16px;
@@ -1050,4 +1085,18 @@ select {
   line-height: 1;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
+}
+.comprovante-bloco {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  border: 1px solid var(--accent-border);
+}
+.comprovante-arquivo {
+  margin-top: 10px;
+  color: var(--accent);
+  font-size: .82rem;
+  font-weight: 600;
+  word-break: break-word;
 }

@@ -156,6 +156,21 @@ function definirMetaDescricao(texto) {
 function aplicarPersonalizacao() {
   const { salao } = estado;
 
+  const corHexValida = (cor) => /^#[0-9a-f]{6}$/i.test(String(cor || ""));
+  const escurecer = (cor, percentual) => {
+    const numero = Number.parseInt(cor.slice(1), 16);
+    const canal = (deslocamento) => Math.max(0, Math.round(((numero >> deslocamento) & 255) * (1 - percentual))).toString(16).padStart(2, "0");
+    return `#${canal(16)}${canal(8)}${canal(0)}`;
+  };
+  if (corHexValida(salao.cor_destaque)) {
+    document.documentElement.style.setProperty("--brown", salao.cor_destaque);
+    document.documentElement.style.setProperty("--accent", salao.cor_destaque);
+    document.documentElement.style.setProperty("--accent-hover", escurecer(salao.cor_destaque, 0.16));
+  }
+  if (corHexValida(salao.cor_fundo)) {
+    document.documentElement.style.setProperty("--pink", salao.cor_fundo);
+  }
+
   el("salaoNome").textContent = salao.nome;
 
   if (salao.logo_url) {
@@ -378,6 +393,39 @@ function montarHome() {
   el("heroNome").textContent = salao.nome;
   el("heroEndereco").textContent = salao.endereco || "";
   el("agendarBtn").href = `/${slug}/agendar`;
+  el("homePortfolio").href = `/${slug}/portfolio`;
+
+  if (salao.endereco?.trim()) {
+    el("homeComoChegar").href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(salao.endereco.trim())}`;
+    el("homeComoChegar").hidden = false;
+  }
+  carregarDestaquesHome();
+}
+
+function formatarMoeda(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+async function carregarDestaquesHome() {
+  const { data, error } = await sb
+    .from("servicos")
+    .select("nome, preco, duracao_minutos")
+    .eq("salao_id", estado.salao.id)
+    .eq("ativo", true)
+    .order("nome")
+    .limit(4);
+  if (error || !data?.length) return;
+
+  const lista = el("homeListaServicos");
+  lista.innerHTML = "";
+  data.forEach((servico) => {
+    const item = criarEl("a", "home-servico");
+    item.href = `/${slug}/agendar`;
+    item.appendChild(criarEl("strong", null, servico.nome));
+    item.appendChild(criarEl("span", null, `${formatarMoeda(servico.preco)} · ${servico.duracao_minutos} min`));
+    lista.appendChild(item);
+  });
+  el("homeDestaques").hidden = false;
 }
 
 // ============================================================
@@ -395,9 +443,10 @@ async function iniciarWizard() {
     carregarProfissionais();
     irParaPasso(1);
   });
-  el("btnContinuarProfissional").addEventListener("click", () =>
-    irParaPasso(2)
-  );
+  el("btnContinuarProfissional").addEventListener("click", () => {
+    irParaPasso(2);
+    carregarDatasDisponiveis();
+  });
 
   el("inputData").min = new Date().toISOString().slice(0, 10);
   el("inputData").addEventListener("change", () => {
@@ -410,6 +459,11 @@ async function iniciarWizard() {
   el("inputReferencia").addEventListener("change", (e) => {
     const arquivo = e.target.files[0];
     if (arquivo) mostrarPreviewReferencia(arquivo);
+  });
+  el("inputComprovante").addEventListener("change", (e) => {
+    const arquivo = e.target.files[0];
+    el("comprovanteArquivo").textContent = arquivo ? `Arquivo selecionado: ${arquivo.name}` : "";
+    el("comprovanteArquivo").hidden = !arquivo;
   });
   el("btnRemoverReferencia").addEventListener("click", removerReferencia);
 
@@ -572,16 +626,6 @@ async function carregarHorarios() {
 
   const inicioDia = new Date(`${dataValor}T00:00:00`);
   const { profissional } = estado;
-  const diaSemana = inicioDia.getDay();
-  const grade = profissional?.horarios_disponiveis || {};
-  const horariosDoDia = grade[diaSemana] ?? grade[String(diaSemana)] ?? [];
-
-  if (horariosDoDia.length === 0) {
-    el("semHorarios").textContent =
-      "Sem horários disponíveis nesse dia. Escolha outra data.";
-    el("semHorarios").hidden = false;
-    return;
-  }
 
   container.appendChild(
     criarEl("p", "menu-vazio", "Calculando horários disponíveis...")
@@ -605,6 +649,12 @@ async function carregarHorarios() {
   }
 
   container.innerHTML = "";
+  const horariosDoDia = disponibilidade.horarios || [];
+  if (horariosDoDia.length === 0) {
+    el("semHorarios").textContent = "Sem horários disponíveis nesse dia. Escolha outra data.";
+    el("semHorarios").hidden = false;
+    return;
+  }
 
   const intervalosIndisponiveis = [
     ...(disponibilidade.agendamentos || []).map((agendamento) => ({
@@ -689,7 +739,7 @@ function validarDados() {
   }
 
   el("pixBloco").hidden = !exigeSinal;
-  el("avisoComprovante").hidden = !exigeSinal;
+  el("comprovanteBloco").hidden = !exigeSinal;
   if (exigeSinal) {
     el("pixValorConfirmacao").textContent = `R$ ${valorSinalResumo.toFixed(2)}`;
     el("pixChaveConfirmacao").textContent =
@@ -733,7 +783,7 @@ function irParaWhatsapp() {
     mensagem +=
       `\n\nSinal: R$ ${valorSinal.toFixed(2)}\n` +
       `Chave Pix: ${salao?.chave_pix || "combinar com o salão"}\n` +
-      `Já vou enviar o comprovante do pagamento por aqui.`;
+      `O comprovante do pagamento foi enviado pela plataforma.`;
   }
 
   window.location.href = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
@@ -799,6 +849,62 @@ async function enviarFotoReferenciaSeHouver(agendamentoId) {
   }
 }
 
+async function carregarDatasDisponiveis() {
+  const container = el("calendarioDatas");
+  const { profissional, servico } = estado;
+  if (!profissional || !servico) return;
+  container.innerHTML = '<span class="calendario-datas-carregando">Buscando datas...</span>';
+  const quantidade = profissional.modo_agenda === "flexivel" ? 7 : 14;
+  const hoje = new Date();
+  hoje.setHours(12, 0, 0, 0);
+  const dias = Array.from({ length: quantidade }, (_, indice) => {
+    const data = new Date(hoje);
+    data.setDate(hoje.getDate() + indice);
+    return data;
+  });
+  const resultados = await Promise.all(dias.map(async (data) => {
+    const valor = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+    try {
+      const params = new URLSearchParams({ profissional_id: profissional.id, servico_id: servico.id, data: valor });
+      const resposta = await fetch(`/agendamento/disponibilidade?${params}`);
+      const dados = await resposta.json();
+      return { data, valor, disponivel: resposta.ok && dados.ok && (dados.horarios || []).length > 0 };
+    } catch { return { data, valor, disponivel: false }; }
+  }));
+  container.innerHTML = "";
+  resultados.filter((item) => item.disponivel).forEach((item) => {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = "data-chip";
+    const diaSemana = item.data
+      .toLocaleDateString("pt-BR", { weekday: "long" })
+      .replace("-feira", "");
+    const mes = item.data.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+    botao.setAttribute("aria-label", `${diaSemana}, ${item.data.getDate()} de ${mes}`);
+    botao.innerHTML = `<span>${diaSemana}</span><strong>${String(item.data.getDate()).padStart(2, "0")}</strong><small>${mes}</small>`;
+    botao.addEventListener("click", () => {
+      el("inputData").value = item.valor;
+      container.querySelectorAll(".data-chip").forEach((chip) => chip.classList.remove("selected"));
+      botao.classList.add("selected");
+      carregarHorarios();
+    });
+    container.appendChild(botao);
+  });
+  if (!container.children.length) container.innerHTML = '<span class="calendario-datas-vazio">Nenhuma data publicada no momento.</span>';
+}
+
+async function enviarComprovante(agendamentoId) {
+  const arquivo = el("inputComprovante").files[0];
+  if (!arquivo) throw new Error("Anexe o comprovante do sinal para continuar.");
+
+  const dados = new FormData();
+  dados.append("arquivo", arquivo);
+  dados.append("telefone", estado.telefoneCliente.replace(/\D/g, ""));
+  const resposta = await fetch(`/agendamento/${agendamentoId}/comprovante`, { method: "POST", body: dados });
+  const resultado = await resposta.json().catch(() => ({}));
+  if (!resposta.ok || !resultado.ok) throw new Error(resultado.erro || "Não foi possível enviar o comprovante.");
+}
+
 async function confirmarAgendamento() {
   const btn = el("btnConfirmar");
   btn.disabled = true;
@@ -813,6 +919,13 @@ async function confirmarAgendamento() {
     nomeCliente,
     telefoneCliente,
   } = estado;
+
+  if (servicoCobraSinal(servico) && !el("inputComprovante").files[0]) {
+    mostrarErroGlobal("Anexe o comprovante do sinal para enviar seu pedido.");
+    btn.disabled = false;
+    btn.textContent = "Confirmar agendamento";
+    return;
+  }
 
   try {
     const response = await fetch("/agendamento", {
@@ -846,13 +959,25 @@ async function confirmarAgendamento() {
       btn.textContent = "Enviando foto...";
       await enviarFotoReferenciaSeHouver(estado.agendamentoId);
     }
+    if (estado.agendamentoId && servicoCobraSinal(servico)) {
+      btn.textContent = "Enviando comprovante...";
+      try {
+        await enviarComprovante(estado.agendamentoId);
+      } catch (erroComprovante) {
+        console.error("Erro ao enviar comprovante:", erroComprovante);
+        el("mensagemFinal").textContent = `${salao.nome} recebeu seu pedido, mas não foi possível anexar o comprovante. Envie-o pelo WhatsApp para concluir a confirmação.`;
+        el("voltarInicioBtn").href = `/${slug}`;
+        irParaPasso("concluido");
+        return;
+      }
+    }
 
     btn.disabled = false;
     btn.textContent = "Solicitar agendamento";
 
     if (!irParaWhatsapp()) {
       el("mensagemFinal").textContent = servicoCobraSinal(servico)
-        ? `${salao.nome} vai confirmar seu horário após o pagamento do sinal. Envie o comprovante pelo WhatsApp.`
+        ? `${salao.nome} vai confirmar seu horário após conferir o comprovante do sinal.`
         : `${salao.nome} vai confirmar seu horário em breve pelo WhatsApp.`;
       el("voltarInicioBtn").href = `/${slug}`;
       irParaPasso("concluido");

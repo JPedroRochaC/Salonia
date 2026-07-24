@@ -9,6 +9,7 @@ const STATUS_AGUARDANDO_PAGAMENTO = "aguardando_pagamento";
 const STATUS_AGUARDANDO_CONFIRMACAO = "aguardando_confirmacao";
 const FUSO_HORARIO_SALAO = "America/Sao_Paulo";
 const BUCKET_REFERENCIAS = "referencias";
+const BUCKET_COMPROVANTES = "comprovantes";
 const JANELA_LIMITE_MS = 10 * 60 * 1000;
 const tentativasPorIp = new Map();
 const TIPOS_IMAGEM_PERMITIDOS = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -19,6 +20,17 @@ const uploadReferencia = multer({
   fileFilter: (req, arquivo, callback) => {
     if (!TIPOS_IMAGEM_PERMITIDOS.has(arquivo.mimetype)) {
       return callback(new Error("Envie uma imagem JPG, PNG ou WebP."));
+    }
+    callback(null, true);
+  },
+});
+
+const uploadComprovante = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, arquivo, callback) => {
+    if (!TIPOS_IMAGEM_PERMITIDOS.has(arquivo.mimetype)) {
+      return callback(new Error("Envie o comprovante em JPG, PNG ou WebP."));
     }
     callback(null, true);
   },
@@ -44,6 +56,51 @@ function horarioNoFuso(data) {
     diaSemana: dias[valor("weekday")],
     hora: `${valor("hour")}:${valor("minute")}`,
   };
+}
+
+function minutosDaHora(hora) {
+  const [horas, minutos] = String(hora || "").split(":").map(Number);
+  return Number.isInteger(horas) && Number.isInteger(minutos) ? horas * 60 + minutos : NaN;
+}
+
+function formatarHora(minutos) {
+  return `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`;
+}
+
+function gerarHorariosDoDia(configuracao, duracaoMinutos) {
+  if (!Array.isArray(configuracao)) return [];
+  const horarios = new Set();
+  configuracao.forEach((item) => {
+    if (typeof item === "string") return horarios.add(item);
+    const inicio = minutosDaHora(item?.inicio);
+    const fim = minutosDaHora(item?.fim);
+    if (!Number.isFinite(inicio) || !Number.isFinite(fim) || inicio >= fim) return;
+    for (let minuto = inicio; minuto + duracaoMinutos <= fim; minuto += 30) horarios.add(formatarHora(minuto));
+  });
+  return [...horarios].sort();
+}
+
+function configuracaoSemanalDoDia(horariosDisponiveis, diaSemana) {
+  let configuracao = horariosDisponiveis;
+  // Alguns cadastros antigos podem chegar serializados como texto; tratamos os
+  // dois formatos para que a agenda pública não fique vazia após a migração.
+  if (typeof configuracao === "string") {
+    try { configuracao = JSON.parse(configuracao); } catch { return []; }
+  }
+  const lista = configuracao?.[diaSemana] ?? configuracao?.[String(diaSemana)] ?? [];
+  return Array.isArray(lista) ? lista : [];
+}
+
+function horarioPermitido(configuracao, hora, duracaoMinutos) {
+  if (!Array.isArray(configuracao)) return false;
+  if (configuracao.includes(hora)) return true;
+  const inicioReserva = minutosDaHora(hora);
+  return configuracao.some((periodo) => {
+    if (!periodo || typeof periodo !== "object") return false;
+    const inicio = minutosDaHora(periodo.inicio);
+    const fim = minutosDaHora(periodo.fim);
+    return Number.isFinite(inicio) && Number.isFinite(fim) && inicioReserva >= inicio && inicioReserva + duracaoMinutos <= fim;
+  });
 }
 
 function identificarIp(req) {
@@ -88,7 +145,7 @@ router.get("/disponibilidade", async (req, res) => {
   try {
     const { data: profissional, error: erroProfissional } = await supabase
       .from("profissionais")
-      .select("id, salao_id")
+      .select("id, salao_id, modo_agenda, horarios_disponiveis")
       .eq("id", profissionalId)
       .eq("ativo", true)
       .maybeSingle();
@@ -104,6 +161,39 @@ router.get("/disponibilidade", async (req, res) => {
       .maybeSingle();
     if (erroVinculo || !vinculo) {
       return res.status(400).json({ erro: "Serviço indisponível para esta profissional." });
+    }
+
+    const { data: servico, error: erroServico } = await supabase
+      .from("servicos")
+      .select("duracao_minutos")
+      .eq("id", servicoId)
+      .eq("salao_id", profissional.salao_id)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (erroServico || !servico || !Number.isFinite(Number(servico.duracao_minutos)) || Number(servico.duracao_minutos) <= 0) {
+      return res.status(400).json({ erro: "Serviço indisponível." });
+    }
+
+    let horariosDoDia;
+    if (profissional.modo_agenda === "flexivel") {
+      const hoje = new Date();
+      const limite = new Date(hoje);
+      limite.setDate(limite.getDate() + 6);
+      const dataLimite = limite.toLocaleDateString("sv-SE", { timeZone: FUSO_HORARIO_SALAO });
+      if (data > dataLimite) return res.json({ ok: true, horarios: [], agendamentos: [], bloqueios: [] });
+      const { data: horariosFlexiveis, error: erroFlexivel } = await supabase
+        .from("disponibilidades_profissional")
+        .select("hora")
+        .eq("profissional_id", profissional.id)
+        .eq("salao_id", profissional.salao_id)
+        .eq("data", data)
+        .order("hora");
+      if (erroFlexivel) return res.status(500).json({ erro: "Erro ao consultar horários publicados." });
+      horariosDoDia = (horariosFlexiveis || []).map((registro) => String(registro.hora).slice(0, 5));
+    } else {
+      const diaSemana = new Date(`${data}T12:00:00-03:00`).getDay();
+      const configuracao = configuracaoSemanalDoDia(profissional.horarios_disponiveis, diaSemana);
+      horariosDoDia = gerarHorariosDoDia(configuracao, Number(servico.duracao_minutos));
     }
 
     const [{ data: agendamentos, error: erroAgendamentos }, { data: bloqueios, error: erroBloqueios }] = await Promise.all([
@@ -133,7 +223,7 @@ router.get("/disponibilidade", async (req, res) => {
       (bloqueio) => !bloqueio.profissional_id || bloqueio.profissional_id === profissional.id,
     );
 
-    res.json({ ok: true, agendamentos: agendamentos || [], bloqueios: bloqueiosAplicaveis });
+    res.json({ ok: true, horarios: horariosDoDia, agendamentos: agendamentos || [], bloqueios: bloqueiosAplicaveis });
   } catch (erro) {
     console.error("Erro inesperado na disponibilidade:", erro);
     res.status(500).json({ erro: "Erro interno ao consultar disponibilidade." });
@@ -188,7 +278,7 @@ router.post("/", limitarTentativas(10), async (req, res) => {
         .maybeSingle(),
       supabase
         .from("profissionais")
-        .select("id, horarios_disponiveis")
+        .select("id, modo_agenda, horarios_disponiveis")
         .eq("id", profissional_id)
         .eq("salao_id", salao_id)
         .eq("ativo", true)
@@ -224,22 +314,35 @@ router.post("/", limitarTentativas(10), async (req, res) => {
       return res.status(400).json({ erro: "Esta profissional não realiza o serviço selecionado." });
     }
 
-    const { diaSemana, hora } = horarioNoFuso(dataHora);
-    const horariosDoDia =
-      profissional.horarios_disponiveis?.[diaSemana] ??
-      profissional.horarios_disponiveis?.[Number(diaSemana)] ??
-      [];
-
-    if (!Array.isArray(horariosDoDia) || !horariosDoDia.includes(hora)) {
-      return res.status(400).json({ erro: "O horário selecionado não está mais disponível." });
-    }
-
     const duracaoMinutos = Number(servico.duracao_minutos);
     const valor = Number(servico.preco);
     if (!Number.isFinite(duracaoMinutos) || duracaoMinutos <= 0 || !Number.isFinite(valor) || valor < 0) {
       console.error("Serviço com dados inválidos:", servico.id);
       return res.status(500).json({ erro: "O serviço selecionado está configurado incorretamente." });
     }
+
+    const { diaSemana, hora } = horarioNoFuso(dataHora);
+    let horarioValido = false;
+    if (profissional.modo_agenda === "flexivel") {
+      const dataLocal = new Intl.DateTimeFormat("en-CA", { timeZone: FUSO_HORARIO_SALAO }).format(dataHora);
+      const { data: disponibilidade, error: erroDisponibilidade } = await supabase
+        .from("disponibilidades_profissional")
+        .select("hora")
+        .eq("profissional_id", profissional.id)
+        .eq("salao_id", salao_id)
+        .eq("data", dataLocal)
+        .eq("hora", hora)
+        .maybeSingle();
+      if (erroDisponibilidade) {
+        console.error("Erro ao validar agenda flexível:", erroDisponibilidade);
+        return res.status(500).json({ erro: "Erro ao validar o horário selecionado." });
+      }
+      horarioValido = Boolean(disponibilidade);
+    } else {
+      const configuracao = configuracaoSemanalDoDia(profissional.horarios_disponiveis, diaSemana);
+      horarioValido = horarioPermitido(configuracao, hora, duracaoMinutos);
+    }
+    if (!horarioValido) return res.status(400).json({ erro: "O horário selecionado não está mais disponível." });
 
     const status = servico.cobra_sinal === false
       ? STATUS_AGUARDANDO_CONFIRMACAO
@@ -373,6 +476,64 @@ router.post("/:id/referencia", limitarTentativas(20), (req, res) => {
     } catch (erro) {
       console.error("Erro inesperado ao enviar foto de referência:", erro);
       res.status(500).json({ erro: "Erro interno ao enviar a imagem." });
+    }
+  });
+});
+
+// Comprovante do sinal: é privado e só pode ser enviado pela cliente que
+// conhece o WhatsApp usado no agendamento recém-criado.
+router.post("/:id/comprovante", limitarTentativas(10), (req, res) => {
+  uploadComprovante.single("arquivo")(req, res, async (erroUpload) => {
+    if (erroUpload) return res.status(400).json({ erro: erroUpload.message });
+    if (!req.file) return res.status(400).json({ erro: "Envie a imagem do comprovante." });
+
+    const telefoneLimpo = normalizarTelefone(req.body?.telefone);
+    if (telefoneLimpo.length < 10 || telefoneLimpo.length > 11) {
+      return res.status(400).json({ erro: "Informe o WhatsApp usado no agendamento." });
+    }
+
+    try {
+      const { data: agendamento, error: erroAgendamento } = await supabase
+        .from("agendamentos")
+        .select("id, salao_id, status, clientes(telefone)")
+        .eq("id", req.params.id)
+        .maybeSingle();
+      if (erroAgendamento) {
+        console.error("Erro ao validar comprovante:", erroAgendamento);
+        return res.status(500).json({ erro: "Erro ao validar o agendamento." });
+      }
+      if (!agendamento || normalizarTelefone(agendamento.clientes?.telefone) !== telefoneLimpo) {
+        return res.status(404).json({ erro: "Agendamento não encontrado." });
+      }
+      if (agendamento.status !== STATUS_AGUARDANDO_PAGAMENTO) {
+        return res.status(400).json({ erro: "Este agendamento não está aguardando pagamento." });
+      }
+
+      const extensao = (req.file.originalname.split(".").pop() || "jpg")
+        .toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const caminho = `${agendamento.salao_id}/${agendamento.id}-${Date.now()}.${extensao}`;
+      const { error: erroStorage } = await supabase.storage
+        .from(BUCKET_COMPROVANTES)
+        .upload(caminho, req.file.buffer, { contentType: req.file.mimetype });
+      if (erroStorage) {
+        console.error("Erro ao enviar comprovante:", erroStorage);
+        return res.status(500).json({ erro: "Erro ao enviar o comprovante." });
+      }
+
+      const { error: erroAtualizacao } = await supabase
+        .from("agendamentos")
+        .update({ comprovante_url: caminho })
+        .eq("id", agendamento.id)
+        .eq("salao_id", agendamento.salao_id);
+      if (erroAtualizacao) {
+        console.error("Erro ao vincular comprovante:", erroAtualizacao);
+        return res.status(500).json({ erro: "O comprovante foi enviado, mas não pôde ser vinculado." });
+      }
+
+      res.json({ ok: true });
+    } catch (erro) {
+      console.error("Erro inesperado ao enviar comprovante:", erro);
+      res.status(500).json({ erro: "Erro interno ao enviar o comprovante." });
     }
   });
 });

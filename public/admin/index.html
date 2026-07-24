@@ -69,13 +69,17 @@
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
             Dashboard
           </button>
+          <button class="nav-item" data-aba="clientes">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c.7-3.5 2.5-5.2 5.5-5.2s4.8 1.7 5.5 5.2M17 8h4M19 6v4" stroke-linecap="round"/></svg>
+            Clientes
+          </button>
           <button class="nav-item" data-aba="personalizacao">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="16" cy="13.5" r="1.2" fill="currentColor" stroke="none"/><path d="M9 15c1 1.2 5 1.2 6.5-.3"/></svg>
             Personalização
           </button>
           <button class="nav-item" data-aba="servicos">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><path d="M20 5 8.5 16.5M9 8.5 20 19"/></svg>
-            Serviços &amp; Profissionais
+            Profissionais &amp; Serviços
           </button>
           <button class="nav-item" data-aba="agendamentos">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
@@ -106,12 +110,13 @@
         <!-- ABA: DASHBOARD -->
         <section class="aba" data-aba-conteudo="dashboard">
           <h2>Dashboard</h2>
-          <p class="conteudo-sub">Resumo do mês atual.</p>
+          <p class="conteudo-sub">O que merece sua atenção hoje e o resultado do mês.</p>
 
           <div class="cards-grid" id="dashboardCards">
             <div class="card-stat">
               <span>Faturamento do mês</span>
               <strong id="statFaturamento">—</strong>
+              <small id="statFaturamentoComparacao">Comparação disponível no próximo mês</small>
             </div>
             <div class="card-stat">
               <span>Agendamentos de hoje</span>
@@ -125,12 +130,110 @@
               <span>Ticket médio</span>
               <strong id="statTicket">—</strong>
             </div>
+            <div class="card-stat">
+              <span>Confirmações pendentes</span>
+              <strong id="statPendentes">—</strong>
+            </div>
+            <div class="card-stat">
+              <span>Cancelamentos no mês</span>
+              <strong id="statCancelamentos">—</strong>
+            </div>
+            <div class="card-stat">
+              <span>Profissionais ativos</span>
+              <strong id="statProfissionaisAtivos">—</strong>
+            </div>
           </div>
+
+          <section class="dashboard-prioridades">
+            <div class="dashboard-bloco">
+              <div class="dashboard-bloco-cabecalho"><h3>Precisa de atenção</h3><span id="dashboardPendenciasResumo"></span></div>
+              <div id="dashboardAlertas" class="dashboard-alertas"></div>
+              <p id="dashboardAlertasVazio" class="menu-vazio" hidden>Nenhuma pendência operacional no momento.</p>
+            </div>
+            <div class="dashboard-bloco">
+              <div class="dashboard-bloco-cabecalho"><h3>Atalhos rápidos</h3></div>
+              <div class="dashboard-atalhos">
+                <button type="button" class="btn btn-primary" data-dashboard-atalho="novo-agendamento">+ Novo agendamento</button>
+                <button type="button" class="btn btn-outline" data-dashboard-atalho="bloqueio">Bloquear horário</button>
+                <button type="button" class="btn btn-outline" data-dashboard-atalho="clientes">Clientes</button>
+                <button type="button" class="btn btn-outline" data-dashboard-atalho="profissionais">Profissionais</button>
+              </div>
+            </div>
+          </section>
 
           <h3 class="secao-titulo">Próximos agendamentos</h3>
           <div id="proximosLista" class="lista-proximos">
           </div>
           <p id="proximosVazio" class="menu-vazio" hidden>Nenhum agendamento futuro por enquanto.</p>
+
+          <section class="dashboard-desempenho">
+            <div class="dashboard-bloco"><h3>Serviços mais realizados</h3><div id="dashboardServicosDestaque" class="ranking-dashboard"></div></div>
+            <div class="dashboard-bloco"><h3>Profissionais com mais atendimentos</h3><div id="dashboardProfissionaisDestaque" class="ranking-dashboard"></div></div>
+          </section>
+        </section>
+
+        <!-- ABA: CLIENTES -->
+        <section class="aba" data-aba-conteudo="clientes" hidden>
+          <div class="clientes-cabecalho">
+            <div>
+              <h2>Clientes</h2>
+              <p class="conteudo-sub">Nome e WhatsApp, com histórico calculado automaticamente pela agenda.</p>
+            </div>
+            <div class="clientes-acoes-topo">
+              <button type="button" class="btn btn-outline" id="btnExportarClientes">Exportar</button>
+              <button type="button" class="btn btn-primary" id="btnNovaCliente">+ Nova cliente</button>
+            </div>
+          </div>
+
+          <form id="formCliente" class="form-config cliente-form" hidden>
+            <input type="hidden" id="clienteId" />
+            <div class="cliente-form-grid">
+              <div><label for="clienteNome">Nome</label><input id="clienteNome" class="input" autocomplete="name" required /></div>
+              <div><label for="clienteTelefone">WhatsApp</label><input id="clienteTelefone" class="input" type="tel" inputmode="numeric" autocomplete="tel" required /></div>
+            </div>
+            <details class="cliente-informacoes-internas">
+              <summary>Informações internas opcionais</summary>
+              <div class="cliente-form-grid cliente-form-grid--interno">
+                <div><label for="clienteAniversarioDia">Aniversário</label><div class="cliente-aniversario"><select id="clienteAniversarioDia" class="input"><option value="">Dia</option></select><select id="clienteAniversarioMes" class="input"><option value="">Mês</option></select></div></div>
+                <div><label for="clienteTags">Tags</label><input id="clienteTags" class="input" placeholder="Ex.: VIP, noiva, cabelo" /></div>
+              </div>
+              <label for="clientePreferencias">Preferências</label>
+              <textarea id="clientePreferencias" class="input" rows="3" placeholder="Ex.: prefere atendimento pela manhã"></textarea>
+              <label for="clienteObservacoes">Observações internas</label>
+              <textarea id="clienteObservacoes" class="input" rows="3" placeholder="Informações úteis para a equipe"></textarea>
+              <details class="cliente-saude">
+                <summary>Informação de saúde (opcional)</summary>
+                <label for="clienteAlergias">Alergias ou restrições informadas</label>
+                <textarea id="clienteAlergias" class="input" rows="3" placeholder="Registre somente o necessário para o atendimento"></textarea>
+                <label class="cliente-consentimento"><input id="clienteConsentimentoAlergias" type="checkbox" /> A cliente autorizou expressamente o registro desta informação.</label>
+              </details>
+            </details>
+            <p id="clienteFormErro" class="erro-envio" hidden></p>
+            <div class="cliente-form-acoes">
+              <button class="btn btn-primary" type="submit" id="btnSalvarCliente">Salvar cliente</button>
+              <button class="btn btn-outline" type="button" id="btnCancelarCliente">Cancelar</button>
+            </div>
+          </form>
+
+          <div class="clientes-filtros">
+            <input id="buscaClientes" class="input" type="search" placeholder="Buscar por nome ou WhatsApp" autocomplete="off" />
+            <select id="filtroClientes" class="input">
+              <option value="todos">Todas as clientes</option>
+              <option value="inativos">Clientes inativas (60+ dias)</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-outline btn-campanha" id="btnCampanhaInativas">Campanha para inativas</button>
+          <section id="campanhaInativas" class="campanha-inativas" hidden>
+            <strong>Recuperar clientes inativas</strong>
+            <p>O Salonia abre uma conversa por vez no WhatsApp. Revise e envie a mensagem pessoalmente.</p>
+            <textarea id="mensagemCampanha" class="input" rows="3">Olá, {nome}! Sentimos sua falta no salão. Que tal marcar seu próximo horário?</textarea>
+            <p id="campanhaContagem" class="conteudo-sub"></p>
+            <div class="cliente-form-acoes"><button type="button" class="btn btn-primary" id="btnAbrirProximaCampanha">Abrir próxima conversa</button><button type="button" class="btn btn-outline" id="btnFecharCampanha">Cancelar</button></div>
+          </section>
+
+          <div id="clientesLista" class="clientes-lista"></div>
+          <p id="clientesVazio" class="menu-vazio" hidden>Nenhuma cliente encontrada.</p>
+          <section id="clienteDetalhe" class="cliente-detalhe" hidden></section>
         </section>
 
         <!-- ABA: PERSONALIZAÇÃO -->
@@ -177,7 +280,7 @@
               <legend>Pagamento antecipado</legend>
               <!--
                 O sinal (se cobra, e se é valor fixo ou percentual) agora é
-                configurado por serviço, na aba "Serviços & Profissionais"
+                configurado por serviço, na aba "Profissionais & Serviços"
                 (ver #blocoConfigSinal dentro de #formServico). Aqui no
                 salão fica só a Chave Pix, que é a mesma pra todos os
                 serviços que cobram sinal.
@@ -187,6 +290,17 @@
 
               <label for="campoTitularPix">Nome do titular da conta Pix (opcional, aparece pro cliente junto da chave)</label>
               <input type="text" id="campoTitularPix" class="input" placeholder="Ex: Maria da Silva" />
+            </fieldset>
+
+            <fieldset>
+              <legend>Visual da página pública</legend>
+              <p class="conteudo-sub">Essas cores aparecem apenas na página de agendamento das clientes. O painel continua com o tema Salonia.</p>
+              <div class="cores-linha">
+                <label for="campoCorDestaque">Cor de destaque<input type="color" id="campoCorDestaque" class="input-cor" value="#641546" /></label>
+                <label for="campoCorFundo">Cor de fundo<input type="color" id="campoCorFundo" class="input-cor" value="#edc2cb" /></label>
+              </div>
+              <p id="statusContrasteCores" class="status-contraste" aria-live="polite"></p>
+              <a id="linkVisualizarPagina" class="btn btn-outline" href="#" target="_blank" rel="noopener">Visualizar página pública</a>
             </fieldset>
 
             <fieldset>
@@ -208,17 +322,30 @@
 
         <!-- ABAS AINDA NÃO IMPLEMENTADAS -->
         <section class="aba" data-aba-conteudo="servicos" hidden>
-          <h2>Serviços &amp; Profissionais</h2>
-          <p class="conteudo-sub">O que o salão oferece e quem realiza cada serviço.</p>
+          <h2>Profissionais &amp; Serviços</h2>
+          <p class="conteudo-sub">Gerencie quem atende, a agenda de cada profissional e os serviços do salão.</p>
 
           <div class="sub-abas">
-            <button class="sub-aba-item active" data-sub-aba="listaServicosSub">Serviços</button>
-            <button class="sub-aba-item" data-sub-aba="listaProfissionaisSub">Profissionais</button>
+            <button class="sub-aba-item active" data-sub-aba="listaProfissionaisSub">Profissionais</button>
+            <button class="sub-aba-item" data-sub-aba="listaServicosSub">Serviços</button>
           </div>
 
           <!-- SERVIÇOS -->
-          <div class="sub-aba" data-sub-aba-conteudo="listaServicosSub">
-            <form id="formServico" class="form-config form-inline">
+          <div class="sub-aba" data-sub-aba-conteudo="listaServicosSub" hidden>
+            <section class="profissionais-secao">
+              <div class="profissionais-secao-cabecalho">
+                <div>
+                  <h3>Seus serviços</h3>
+                  <p>Defina o que o salão oferece, duração, preço e sinal.</p>
+                </div>
+              </div>
+              <div id="listaServicosAdmin" class="lista-itens"></div>
+              <p id="servicosVazio" class="menu-vazio" hidden>Nenhum serviço cadastrado ainda.</p>
+            </section>
+
+            <details id="painelFormServico" class="painel-form-profissional">
+              <summary id="tituloFormServico">Adicionar serviço</summary>
+              <form id="formServico" class="form-config form-inline">
               <input type="hidden" id="servicoEditandoId" />
               <div class="form-inline-campos">
                 <div>
@@ -267,54 +394,83 @@
                 <button type="submit" class="btn btn-primary" id="btnSalvarServico">Adicionar serviço</button>
                 <button type="button" class="btn btn-outline" id="btnCancelarEdicaoServico" hidden>Cancelar edição</button>
               </div>
-            </form>
-
-            <div id="listaServicosAdmin" class="lista-itens"></div>
-            <p id="servicosVazio" class="menu-vazio" hidden>Nenhum serviço cadastrado ainda.</p>
+              </form>
+            </details>
           </div>
 
           <!-- PROFISSIONAIS -->
-          <div class="sub-aba" data-sub-aba-conteudo="listaProfissionaisSub" hidden>
-            <form id="formProfissional" class="form-config form-inline">
-              <input type="hidden" id="profissionalEditandoId" />
-              <div class="logo-upload-linha">
-                <img id="previewFotoProfissional" class="preview-logo" src="" alt="" hidden />
+          <div class="sub-aba" data-sub-aba-conteudo="listaProfissionaisSub">
+            <section class="profissionais-secao">
+              <div class="profissionais-secao-cabecalho">
                 <div>
-                  <label for="profissionalFotoArquivo" class="btn btn-outline btn-upload">Escolher foto</label>
-                  <input type="file" id="profissionalFotoArquivo" accept="image/*" hidden />
-                  <p id="profissionalFotoStatus" class="logo-status"></p>
+                  <h3>Seus profissionais</h3>
+                  <p>Gerencie quem atende no seu salão e os serviços de cada pessoa.</p>
                 </div>
               </div>
-              <input type="hidden" id="profissionalFotoUrl" />
+              <div id="listaProfissionaisAdmin" class="lista-itens"></div>
+              <p id="profissionaisVazio" class="menu-vazio" hidden>Nenhum profissional cadastrado ainda.</p>
+            </section>
 
-              <label for="profissionalNome">Nome</label>
-              <input type="text" id="profissionalNome" class="input" placeholder="Ex: Ana" required />
+            <details id="painelFormProfissional" class="painel-form-profissional">
+              <summary id="tituloFormProfissional">Adicionar profissional</summary>
+              <form id="formProfissional" class="form-config form-inline">
+                <input type="hidden" id="profissionalEditandoId" />
+                <div class="logo-upload-linha">
+                  <img id="previewFotoProfissional" class="preview-logo" src="" alt="" hidden />
+                  <div>
+                    <label for="profissionalFotoArquivo" class="btn btn-outline btn-upload">Escolher foto</label>
+                    <input type="file" id="profissionalFotoArquivo" accept="image/*" hidden />
+                    <p id="profissionalFotoStatus" class="logo-status"></p>
+                  </div>
+                </div>
+                <input type="hidden" id="profissionalFotoUrl" />
 
-              <label>Serviços que ela realiza</label>
-              <div id="profissionalServicosCheckboxes" class="checkboxes-servicos"></div>
+                <label for="profissionalNome">Nome</label>
+                <input type="text" id="profissionalNome" class="input" placeholder="Ex: Ana" required />
 
-              <p id="profissionalErro" class="erro-envio" hidden></p>
-              <div class="faq-form-botoes">
-                <button type="submit" class="btn btn-primary" id="btnSalvarProfissional">Adicionar profissional</button>
-                <button type="button" class="btn btn-outline" id="btnCancelarEdicaoProfissional" hidden>Cancelar edição</button>
+                <label>Serviços que ela realiza</label>
+                <div id="profissionalServicosCheckboxes" class="checkboxes-servicos"></div>
+
+                <p id="profissionalErro" class="erro-envio" hidden></p>
+                <div class="faq-form-botoes">
+                  <button type="submit" class="btn btn-primary" id="btnSalvarProfissional">Adicionar profissional</button>
+                  <button type="button" class="btn btn-outline" id="btnCancelarEdicaoProfissional" hidden>Cancelar edição</button>
+                </div>
+              </form>
+            </details>
+
+            <section id="painelAgendaProfissional" class="painel-agenda-profissional" hidden>
+              <div class="painel-agenda-profissional-cabecalho">
+                <div>
+                  <p class="painel-agenda-profissional-sobrancelha">Agenda da profissional</p>
+                  <h3 id="tituloAgendaProfissional">—</h3>
+                  <p id="horariosDescricao" class="conteudo-sub"></p>
+                </div>
+                <button type="button" id="btnFecharAgendaProfissional" class="btn btn-outline">Voltar para profissionais</button>
               </div>
-            </form>
-
-            <div id="listaProfissionaisAdmin" class="lista-itens"></div>
-            <p id="profissionaisVazio" class="menu-vazio" hidden>Nenhum profissional cadastrado ainda.</p>
+              <select id="horarioProfissionalSelect" hidden aria-hidden="true"></select>
+              <div class="horario-modo-linha">
+                <label for="horarioModoAgenda">Tipo de agenda</label>
+                <select id="horarioModoAgenda" class="input">
+                  <option value="semanal">Horário padrão semanal</option>
+                  <option value="flexivel">Horários flexíveis por data</option>
+                </select>
+              </div>
+              <div id="gradeHorarios" class="grade-horarios"></div>
+              <div id="agendaFlexivel" class="agenda-flexivel" hidden>
+                <p class="conteudo-sub">Monte a semana abaixo. A cliente vê apenas os horários publicados para os próximos 7 dias; os antigos continuam no histórico.</p>
+                <div id="agendaFlexivelSemana" class="agenda-flexivel-semana"></div>
+              </div>
+              <p id="gradeHorariosVazio" class="menu-vazio" hidden>Cadastre um profissional primeiro.</p>
+            </section>
           </div>
         </section>
 
         <section class="aba" data-aba-conteudo="agendamentos" hidden>
           <h2>Agendamentos</h2>
-          <p class="conteudo-sub">Veja os agendamentos recebidos e configure os horários de cada profissional.</p>
+          <p class="conteudo-sub">Veja os agendamentos recebidos, confirme atendimentos e bloqueie horários quando necessário.</p>
 
-          <div class="sub-abas">
-            <button class="sub-aba-item active" data-sub-aba="verAgendamentosSub">Agendamentos</button>
-            <button class="sub-aba-item" data-sub-aba="horariosDisponiveisSub">Horários disponíveis</button>
-          </div>
-
-          <div class="sub-aba" data-sub-aba-conteudo="verAgendamentosSub">
+          <div>
             <div class="calendario-toolbar">
               <div class="calendario-nav">
                 <button type="button" id="btnSemanaAnterior" class="btn-calendario-seta" aria-label="Semana anterior">‹</button>
@@ -354,19 +510,6 @@
             <p id="agendamentosVazio" class="menu-vazio" hidden>Nenhum agendamento nessa semana.</p>
           </div>
 
-          <div class="sub-aba" data-sub-aba-conteudo="horariosDisponiveisSub" hidden>
-            <p class="conteudo-sub" style="margin-bottom: 16px;">
-              Cada profissional tem sua própria grade — escolha os horários
-              certos em que ela atende em cada dia da semana (pode ter quantos
-              horários quiser por dia, ou nenhum se ela não atender naquele dia).
-            </p>
-
-            <label for="horarioProfissionalSelect">Profissional</label>
-            <select id="horarioProfissionalSelect" class="input" style="max-width: 320px; margin-bottom: 20px;"></select>
-
-            <div id="gradeHorarios" class="grade-horarios"></div>
-            <p id="gradeHorariosVazio" class="menu-vazio" hidden>Cadastre um profissional primeiro, na aba "Serviços &amp; Profissionais".</p>
-          </div>
         </section>
 
         <section class="aba" data-aba-conteudo="portfolio" hidden>

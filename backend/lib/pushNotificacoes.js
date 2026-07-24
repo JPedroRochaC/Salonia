@@ -68,3 +68,17 @@ export async function notificarTodosSaloes(conteudo) {
 
   await Promise.all(idsUnicos.map((salaoId) => notificarSalao(salaoId, conteudo)));
 }
+
+export async function notificarSaloesComAgendaFlexivel(conteudo) {
+  const { data: profissionais, error } = await supabase
+    .from("profissionais")
+    .select("salao_id")
+    .eq("modo_agenda", "flexivel")
+    .eq("ativo", true);
+  if (error) {
+    console.error("Erro ao localizar agendas flexíveis:", error);
+    return;
+  }
+  const saloes = [...new Set((profissionais || []).map((profissional) => profissional.salao_id))];
+  await Promise.all(saloes.map((salaoId) => notificarSalao(salaoId, conteudo)));
+}

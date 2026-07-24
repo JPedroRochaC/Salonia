@@ -18,6 +18,12 @@ html, body { overflow-x: hidden; }
 
 /* ===== MOBILE (até 820px): sidebar vira drawer ===== */
 @media (max-width: 820px) {
+  .dashboard-prioridades, .dashboard-desempenho { grid-template-columns: 1fr; }
+  .painel-agenda-profissional { padding: 18px; }
+  .painel-agenda-profissional-cabecalho { flex-direction: column; }
+  .periodo-trabalho-campos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .periodo-trabalho-campos .btn { grid-column: 1 / -1; }
+
   :root { --sidebar-w: 280px; }
 
   .painel {
@@ -72,6 +78,19 @@ html, body { overflow-x: hidden; }
   }
 
   .form-config { max-width: 100%; }
+  .painel-form-profissional .form-inline { padding-inline: 14px; }
+  .clientes-cabecalho,
+  .cliente-detalhe-cabecalho { flex-direction: column; }
+  .clientes-acoes-topo { width: 100%; }
+  .clientes-acoes-topo .btn { flex: 1 1 140px; }
+  .cliente-form-grid,
+  .clientes-filtros,
+  .cliente-resumo { grid-template-columns: 1fr; }
+  .cliente-card,
+  .cliente-historico-item { align-items: flex-start; flex-direction: column; }
+  .cliente-mesclar-acoes { flex-direction: column; align-items: stretch; }
+  .cliente-card-metricas { justify-content: flex-start; text-align: left; }
+  .cliente-historico-item > div:last-child { align-items: flex-start; text-align: left; }
   /* fieldset NÃO tem override de padding aqui de propósito — o padding
      dele (definido em style.css) já reserva o espaço fixo pro <legend>
      absoluto. Ter uma segunda regra de padding só pra mobile é o que
@@ -220,6 +239,10 @@ html, body { overflow-x: hidden; }
 
 /* ===== CELULAR PEQUENO (até 420px) ===== */
 @media (max-width: 420px) {
+  .periodo-trabalho-campos { grid-template-columns: 1fr; }
+  .linha-grade-dia-topo small { width: 100%; }
+  .linha-grade-dia-add { width: 100%; }
+  .linha-grade-dia-add input[type="time"] { flex: 1; min-width: 0; }
   .conteudo { padding: 18px 16px 36px; }
   .conteudo h2 { font-size: 1.25rem; }
 

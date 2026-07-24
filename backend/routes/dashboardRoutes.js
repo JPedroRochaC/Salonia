@@ -8,17 +8,24 @@ const router = express.Router();
 // possíveis de `agendamentos.status`. Por enquanto, consideramos "faturamento"
 // só os agendamentos com esses status (ajustar assim que soubermos o enum real).
 const STATUS_QUE_CONTAM_COMO_FATURAMENTO = ["confirmado", "concluido"];
+const STATUS_ABERTOS = ["aguardando_confirmacao", "aguardando_pagamento", "confirmado"];
+const FUSO = "America/Sao_Paulo";
+
+function dataNoFuso(data) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).format(data);
+}
 
 router.get("/", requireAuth, async (req, res) => {
   const salaoId = req.salao.id;
 
   const hoje = new Date();
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const inicioMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
   const inicioMesISO = inicioMes.toISOString();
 
   const { data: agendamentosMes, error } = await supabase
     .from("agendamentos")
-    .select("valor, status, data_hora")
+    .select("valor, status, data_hora, servicos(nome), profissionais(nome)")
     .eq("salao_id", salaoId)
     .gte("data_hora", inicioMesISO);
 
@@ -28,6 +35,12 @@ router.get("/", requireAuth, async (req, res) => {
   }
 
   const lista = agendamentosMes || [];
+
+  const [{ data: agendamentosMesAnterior }, { data: profissionais }, { data: clientes, error: erroClientes }] = await Promise.all([
+    supabase.from("agendamentos").select("valor, status").eq("salao_id", salaoId).gte("data_hora", inicioMesAnterior.toISOString()).lt("data_hora", inicioMesISO),
+    supabase.from("profissionais").select("id, nome, ativo, modo_agenda, horarios_disponiveis").eq("salao_id", salaoId),
+    supabase.from("clientes").select("id, nome, aniversario_dia, aniversario_mes").eq("salao_id", salaoId),
+  ]);
 
   const faturamentoMes = lista
     .filter((a) => STATUS_QUE_CONTAM_COMO_FATURAMENTO.includes(a.status))
@@ -56,6 +69,42 @@ router.get("/", requireAuth, async (req, res) => {
 
   const ticketMedio =
     confirmadosMes > 0 ? faturamentoMes / confirmadosMes : 0;
+  const faturamentoMesAnterior = (agendamentosMesAnterior || [])
+    .filter((a) => STATUS_QUE_CONTAM_COMO_FATURAMENTO.includes(a.status))
+    .reduce((soma, a) => soma + Number(a.valor || 0), 0);
+  const variacaoFaturamento = faturamentoMesAnterior > 0
+    ? ((faturamentoMes - faturamentoMesAnterior) / faturamentoMesAnterior) * 100
+    : null;
+  const pendentes = lista.filter((a) => ["aguardando_confirmacao", "aguardando_pagamento"].includes(a.status)).length;
+  const cancelamentos = lista.filter((a) => a.status === "cancelado").length;
+  const profissionaisAtivos = (profissionais || []).filter((p) => p.ativo).length;
+
+  const hojeLocal = dataNoFuso(hoje);
+  const [, mesHoje, diaHoje] = hojeLocal.split("-").map(Number);
+  const aniversariantes = erroClientes ? [] : (clientes || [])
+    .filter((cliente) => Number(cliente.aniversario_dia) === diaHoje && Number(cliente.aniversario_mes) === mesHoje)
+    .map((cliente) => cliente.nome)
+    .slice(0, 4);
+  const alertas = [];
+  (profissionais || []).filter((p) => p.ativo).forEach((profissional) => {
+    const horarios = typeof profissional.horarios_disponiveis === "string"
+      ? (() => { try { return JSON.parse(profissional.horarios_disponiveis); } catch { return {}; } })()
+      : (profissional.horarios_disponiveis || {});
+    if (profissional.modo_agenda !== "flexivel" && !Object.values(horarios).some((listaDia) => Array.isArray(listaDia) && listaDia.length)) {
+      alertas.push({ tipo: "agenda", texto: `${profissional.nome} ainda não tem horário padrão configurado.` });
+    }
+  });
+
+  const ranking = (campo) => Object.entries(lista
+    .filter((a) => STATUS_QUE_CONTAM_COMO_FATURAMENTO.includes(a.status))
+    .reduce((mapa, agendamento) => {
+      const nome = agendamento[campo]?.nome || "Não informado";
+      mapa[nome] = (mapa[nome] || 0) + 1;
+      return mapa;
+    }, {}))
+    .map(([nome, quantidade]) => ({ nome, quantidade }))
+    .sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome))
+    .slice(0, 3);
 
   // próximos agendamentos (hoje em diante), pra mostrar uma lista rápida
   // Regras de exibição:
@@ -101,6 +150,15 @@ router.get("/", requireAuth, async (req, res) => {
     agendamentosHoje,
     confirmadosMes,
     ticketMedio,
+    faturamentoMesAnterior,
+    variacaoFaturamento,
+    pendentes,
+    cancelamentos,
+    profissionaisAtivos,
+    aniversariantes,
+    alertas,
+    servicosDestaque: ranking("servicos"),
+    profissionaisDestaque: ranking("profissionais"),
     proximosAgendamentos: proximos || [],
   });
 });

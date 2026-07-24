@@ -290,6 +290,7 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
       .forEach((secao) => (secao.hidden = secao.dataset.abaConteudo !== aba));
 
     if (aba === "dashboard") carregarDashboard();
+    if (aba === "clientes") carregarClientes();
     if (aba === "faq") carregarFaq();
     if (aba === "agendamentos") carregarAgendamentos();
     if (aba === "servicos") carregarServicosEProfissionais();
@@ -307,9 +308,31 @@ async function carregarDashboard() {
     const dados = await chamarApi("/admin/api/dashboard");
 
     el("statFaturamento").textContent = formatarMoeda(dados.faturamentoMes);
+    el("statFaturamentoComparacao").textContent = dados.variacaoFaturamento === null
+      ? "Comparação disponível no próximo mês"
+      : `${dados.variacaoFaturamento >= 0 ? "↑" : "↓"} ${Math.abs(dados.variacaoFaturamento).toFixed(0)}% em relação ao mês anterior`;
     el("statHoje").textContent = dados.agendamentosHoje;
     el("statTotal").textContent = dados.totalAgendamentosMes;
     el("statTicket").textContent = formatarMoeda(dados.ticketMedio);
+    el("statPendentes").textContent = dados.pendentes || 0;
+    el("statCancelamentos").textContent = dados.cancelamentos || 0;
+    el("statProfissionaisAtivos").textContent = dados.profissionaisAtivos || 0;
+
+    const alertas = [...(dados.alertas || [])];
+    if (dados.pendentes) alertas.unshift({ tipo: "pendencia", texto: `${dados.pendentes} confirmação(ões) ou pagamento(s) aguardando atenção.` });
+    if (dados.aniversariantes?.length) alertas.push({ tipo: "aniversario", texto: `Aniversariante${dados.aniversariantes.length > 1 ? "s" : ""} de hoje: ${dados.aniversariantes.join(", ")}.` });
+    el("dashboardPendenciasResumo").textContent = alertas.length ? `${alertas.length} aviso${alertas.length > 1 ? "s" : ""}` : "Tudo em dia";
+    const listaAlertas = el("dashboardAlertas");
+    listaAlertas.innerHTML = "";
+    el("dashboardAlertasVazio").hidden = alertas.length > 0;
+    alertas.slice(0, 5).forEach((alerta) => {
+      const item = document.createElement("div");
+      item.className = `dashboard-alerta dashboard-alerta-${alerta.tipo || "info"}`;
+      item.textContent = alerta.texto;
+      listaAlertas.appendChild(item);
+    });
+    renderizarRankingDashboard("dashboardServicosDestaque", dados.servicosDestaque, "Nenhum atendimento concluído neste mês.");
+    renderizarRankingDashboard("dashboardProfissionaisDestaque", dados.profissionaisDestaque, "Nenhum atendimento concluído neste mês.");
 
     const lista = el("proximosLista");
     lista.innerHTML = "";
@@ -355,7 +378,7 @@ async function carregarDashboard() {
             }
             ${
               ag.comprovante_url
-                ? `<button type="button" class="btn-mini btn-mini-comprovante" data-comprovante="${ag.comprovante_url}">
+                ? `<button type="button" class="btn-mini btn-mini-comprovante" data-comprovante="/admin/api/agendamentos/${ag.id}/comprovante">
      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
        <path d="M14 2v6h6"/>
@@ -399,7 +422,64 @@ async function carregarDashboard() {
 // ============================================================
 // PERSONALIZAÇÃO
 // ============================================================
-const DIAS_ABREV = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const DIAS_ABREV = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+function luminosidadeDaCor(hex) {
+  const canais = [1, 3, 5].map((inicio) => Number.parseInt(hex.slice(inicio, inicio + 2), 16) / 255)
+    .map((canal) => canal <= 0.03928 ? canal / 12.92 : ((canal + 0.055) / 1.055) ** 2.4);
+  return canais[0] * 0.2126 + canais[1] * 0.7152 + canais[2] * 0.0722;
+}
+
+function renderizarRankingDashboard(id, itens, vazio) {
+  const container = el(id);
+  container.innerHTML = "";
+  if (!itens?.length) {
+    container.innerHTML = `<p class="ranking-dashboard-vazio">${vazio}</p>`;
+    return;
+  }
+  itens.forEach((item, indice) => {
+    const linha = document.createElement("div");
+    linha.className = "ranking-dashboard-item";
+    linha.innerHTML = `<span>${indice + 1}</span><strong>${escaparHtml(item.nome)}</strong><small>${item.quantidade} atendimento${item.quantidade === 1 ? "" : "s"}</small>`;
+    container.appendChild(linha);
+  });
+}
+
+document.querySelectorAll("[data-dashboard-atalho]").forEach((botao) => {
+  botao.addEventListener("click", () => {
+    const atalho = botao.dataset.dashboardAtalho;
+    if (atalho === "clientes" || atalho === "profissionais") {
+      document.querySelector(`[data-aba="${atalho === "profissionais" ? "servicos" : atalho}"]`)?.click();
+      return;
+    }
+    document.querySelector('[data-aba="agendamentos"]')?.click();
+    setTimeout(() => el(atalho === "bloqueio" ? "btnNovoBloqueio" : "btnNovoAgendamento")?.click(), 0);
+  });
+});
+
+function contrasteEntreCores(corA, corB) {
+  const clara = Math.max(luminosidadeDaCor(corA), luminosidadeDaCor(corB));
+  const escura = Math.min(luminosidadeDaCor(corA), luminosidadeDaCor(corB));
+  return (clara + 0.05) / (escura + 0.05);
+}
+
+function validarCoresPublicas(destaque, fundo) {
+  const formatoValido = /^#[0-9a-f]{6}$/i;
+  if (!formatoValido.test(destaque) || !formatoValido.test(fundo)) return "Escolha cores válidas.";
+  if (luminosidadeDaCor(fundo) < 0.42) return "Escolha um fundo mais claro para os cartões e textos continuarem legíveis.";
+  if (contrasteEntreCores(destaque, "#ffffff") < 4.5) return "A cor de destaque está clara demais para os textos brancos dos botões.";
+  if (contrasteEntreCores(destaque, fundo) < 4.5) return "As duas cores têm pouco contraste. Escolha cores mais diferentes.";
+  return null;
+}
+
+function atualizarStatusContrasteCores() {
+  const erro = validarCoresPublicas(el("campoCorDestaque").value, el("campoCorFundo").value);
+  const status = el("statusContrasteCores");
+  status.textContent = erro || "Combinação aprovada: os textos e botões continuarão legíveis.";
+  status.classList.toggle("status-contraste-erro", Boolean(erro));
+  status.classList.toggle("status-contraste-ok", !erro);
+  return erro;
+}
 
 function preencherFormPersonalizacao() {
   const s = estado.salao;
@@ -416,6 +496,10 @@ function preencherFormPersonalizacao() {
 
   el("campoChavePix").value = s.chave_pix || "";
   el("campoTitularPix").value = s.titular_pix || "";
+  el("campoCorDestaque").value = /^#[0-9a-f]{6}$/i.test(s.cor_destaque || "") ? s.cor_destaque : "#641546";
+  el("campoCorFundo").value = /^#[0-9a-f]{6}$/i.test(s.cor_fundo || "") ? s.cor_fundo : "#edc2cb";
+  el("linkVisualizarPagina").href = `/${s.slug}`;
+  atualizarStatusContrasteCores();
 
   el("campoAtivo").checked = s.ativo !== false;
 }
@@ -471,6 +555,15 @@ el("formPersonalizacao").addEventListener("submit", async (e) => {
   el("personalizacaoErro").hidden = true;
   el("personalizacaoSucesso").hidden = true;
 
+  const erroCores = atualizarStatusContrasteCores();
+  if (erroCores) {
+    el("personalizacaoErro").textContent = erroCores;
+    el("personalizacaoErro").hidden = false;
+    btn.disabled = false;
+    btn.textContent = "Salvar alterações";
+    return;
+  }
+
   const corpo = {
     nome: el("campoNome").value.trim(),
     telefone: el("campoTelefone").value.trim(),
@@ -482,6 +575,8 @@ el("formPersonalizacao").addEventListener("submit", async (e) => {
     },
     chave_pix: el("campoChavePix").value.trim() || null,
     titular_pix: el("campoTitularPix").value.trim() || null,
+    cor_destaque: el("campoCorDestaque").value,
+    cor_fundo: el("campoCorFundo").value,
     ativo: el("campoAtivo").checked,
   };
 
@@ -1172,7 +1267,7 @@ function abrirDetalheAgendamento(ag) {
     </span>
     ${
       ag.comprovante_url
-        ? `<span class="agendamento-comprovante" style="display:block; margin-bottom:10px;"><a href="${ag.comprovante_url}" target="_blank" rel="noopener">Ver comprovante</a></span>`
+        ? `<span class="agendamento-comprovante" style="display:block; margin-bottom:10px;"><a href="/admin/api/agendamentos/${ag.id}/comprovante" target="_blank" rel="noopener">Ver comprovante</a></span>`
         : ""
     }
     ${
@@ -1225,8 +1320,22 @@ function abrirDetalheAgendamento(ag) {
     acoes.appendChild(reagendar);
   }
 
+  if (ag.cliente_id) {
+    const verCliente = document.createElement("button");
+    verCliente.className = "btn-mini";
+    verCliente.textContent = "Ver cliente";
+    verCliente.addEventListener("click", () => {
+      fecharDetalheAgendamento();
+      irParaPerfilCliente(ag.cliente_id);
+    });
+    acoes.appendChild(verCliente);
+  }
+
   if (ag.status === "aguardando_pagamento" || ag.status === "aguardando_confirmacao") {
-    acoes.appendChild(botao("Confirmar", "confirmado", "btn-mini-primary", enviarConfirmacaoWhatsapp));
+    const textoConfirmacao = ag.status === "aguardando_pagamento"
+      ? (ag.comprovante_url ? "Aprovar pagamento" : "Confirmar sem comprovante")
+      : "Confirmar";
+    acoes.appendChild(botao(textoConfirmacao, "confirmado", "btn-mini-primary", enviarConfirmacaoWhatsapp));
     acoes.appendChild(botao("Cancelar", "cancelado", "btn-mini-perigo"));
   } else if (ag.status === "confirmado") {
     acoes.appendChild(botao("Marcar concluído", "concluido", "btn-mini-primary"));
@@ -1260,6 +1369,278 @@ async function mudarStatusAgendamento(id, novoStatus) {
     alert(err.message);
   }
 }
+
+// ============================================================
+// CLIENTES / CRM
+// ============================================================
+let temporizadorBuscaClientes;
+let clienteSelecionadaId = null;
+let clientesAtuais = [];
+let indiceCampanhaInativas = 0;
+
+function preencherCamposAniversario() {
+  const dia = el("clienteAniversarioDia");
+  const mes = el("clienteAniversarioMes");
+  if (!dia || dia.options.length > 1) return;
+  for (let numero = 1; numero <= 31; numero += 1) {
+    dia.add(new Option(String(numero).padStart(2, "0"), String(numero)));
+  }
+  ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+    .forEach((nome, indice) => mes.add(new Option(nome, String(indice + 1))));
+}
+
+function formatarDataCliente(data) {
+  if (!data) return "Ainda não veio ao salão";
+  return new Date(data).toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function fecharFormCliente() {
+  el("formCliente").hidden = true;
+  el("formCliente").reset();
+  el("clienteId").value = "";
+  el("clienteFormErro").hidden = true;
+  document.querySelector(".cliente-informacoes-internas")?.removeAttribute("open");
+}
+
+function abrirFormCliente(cliente = null) {
+  el("formCliente").hidden = false;
+  el("clienteFormErro").hidden = true;
+  el("clienteId").value = cliente?.id || "";
+  el("clienteNome").value = cliente?.nome || "";
+  el("clienteTelefone").value = aplicarMascaraTelefone(cliente?.telefone || "");
+  el("clienteAniversarioDia").value = cliente?.aniversario_dia || "";
+  el("clienteAniversarioMes").value = cliente?.aniversario_mes || "";
+  el("clienteTags").value = (cliente?.tags || []).join(", ");
+  el("clientePreferencias").value = cliente?.preferencias || "";
+  el("clienteObservacoes").value = cliente?.observacoes || "";
+  el("clienteAlergias").value = cliente?.alergias || "";
+  el("clienteConsentimentoAlergias").checked = cliente?.consentimento_alergias === true;
+  const temDadosInternos = cliente && [cliente.aniversario_dia, cliente.aniversario_mes, cliente.tags?.length, cliente.preferencias, cliente.observacoes, cliente.alergias].some(Boolean);
+  document.querySelector(".cliente-informacoes-internas")?.toggleAttribute("open", Boolean(temDadosInternos));
+  el("btnSalvarCliente").textContent = cliente ? "Salvar alterações" : "Salvar cliente";
+  el("clienteNome").focus();
+}
+
+async function carregarClientes() {
+  const lista = el("clientesLista");
+  const vazio = el("clientesVazio");
+  lista.innerHTML = '<p class="menu-vazio">Carregando clientes...</p>';
+  vazio.hidden = true;
+  el("clienteDetalhe").hidden = true;
+
+  try {
+    const params = new URLSearchParams({
+      busca: el("buscaClientes").value.trim(),
+      filtro: el("filtroClientes").value,
+    });
+    const { clientes } = await chamarApi(`/admin/api/clientes?${params}`);
+    clientesAtuais = clientes;
+    lista.innerHTML = "";
+    vazio.hidden = clientes.length > 0;
+
+    clientes.forEach((cliente) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "cliente-card" + (cliente.id === clienteSelecionadaId ? " cliente-card-selecionado" : "");
+      item.setAttribute("aria-pressed", String(cliente.id === clienteSelecionadaId));
+      item.innerHTML = `
+        <span class="cliente-card-principal">
+          <strong>${escaparHtml(cliente.nome)}</strong>
+          <span>${escaparHtml(aplicarMascaraTelefone(cliente.telefone))}</span>
+        </span>
+        <span class="cliente-card-metricas">
+          <span><strong>${cliente.atendimentos}</strong> atend.</span>
+          <span><strong>${formatarMoeda(cliente.gasto_total)}</strong> gasto</span>
+          <span>${cliente.inativa ? "Inativa" : cliente.proximo_agendamento ? "Retorno marcado" : `Última visita: ${formatarDataCliente(cliente.ultima_visita)}`}</span>
+        </span>`;
+      item.addEventListener("click", () => {
+        clienteSelecionadaId = cliente.id;
+        lista.querySelectorAll(".cliente-card").forEach((cartao) => {
+          const selecionado = cartao === item;
+          cartao.classList.toggle("cliente-card-selecionado", selecionado);
+          cartao.setAttribute("aria-pressed", String(selecionado));
+        });
+        mostrarCliente(cliente.id);
+      });
+      lista.appendChild(item);
+    });
+  } catch (err) {
+    lista.innerHTML = `<p class="erro-envio">${escaparHtml(err.message)}</p>`;
+  }
+}
+
+async function mostrarCliente(id) {
+  const detalhe = el("clienteDetalhe");
+  detalhe.hidden = false;
+  detalhe.innerHTML = '<p class="cliente-selecionada-rotulo">Cliente selecionada</p><p class="menu-vazio">Carregando perfil da cliente...</p>';
+  try {
+    const { cliente, agendamentos } = await chamarApi(`/admin/api/clientes/${id}`);
+    const telefone = aplicarMascaraTelefone(cliente.telefone);
+    const whatsapp = String(cliente.telefone || "").replace(/\D/g, "");
+    detalhe.innerHTML = `
+      <p class="cliente-selecionada-rotulo">Cliente selecionada</p>
+      <div class="cliente-detalhe-cabecalho">
+        <div><h3>${escaparHtml(cliente.nome)}</h3><p>${escaparHtml(telefone)}</p></div>
+        <div class="cliente-detalhe-acoes">
+          ${whatsapp ? `<a class="btn btn-outline" href="https://wa.me/55${whatsapp}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
+          <button type="button" class="btn btn-outline" id="btnEditarCliente">Editar</button>
+        </div>
+      </div>
+      <div class="cliente-resumo">
+        <div><span>Total gasto</span><strong>${formatarMoeda(cliente.gasto_total)}</strong></div>
+        <div><span>Atendimentos</span><strong>${cliente.atendimentos}</strong></div>
+        <div><span>Frequência (90 dias)</span><strong>${cliente.visitas_ultimos_90_dias}</strong></div>
+        <div><span>Última visita</span><strong>${formatarDataCliente(cliente.ultima_visita)}</strong></div>
+      </div>
+      <details class="cliente-informacoes-internas cliente-informacoes-perfil">
+        <summary>Informações internas${cliente.tags?.length ? ` · ${escaparHtml(cliente.tags.join(", "))}` : ""}</summary>
+        <div class="cliente-interno-conteudo">
+          <p><strong>Aniversário:</strong> ${cliente.aniversario_dia && cliente.aniversario_mes ? `${String(cliente.aniversario_dia).padStart(2, "0")}/${String(cliente.aniversario_mes).padStart(2, "0")}` : "Não informado"}</p>
+          <p><strong>Tags:</strong> ${cliente.tags?.length ? escaparHtml(cliente.tags.join(", ")) : "Sem tags"}</p>
+          <p><strong>Preferências:</strong> ${escaparHtml(cliente.preferencias || "Não informadas")}</p>
+          <p><strong>Observações:</strong> ${escaparHtml(cliente.observacoes || "Nenhuma")}</p>
+          <p><strong>Alergias/restrições:</strong> ${cliente.alergias && cliente.consentimento_alergias ? escaparHtml(cliente.alergias) : "Não informadas"}</p>
+        </div>
+      </details>
+      <details class="cliente-mesclar">
+        <summary>Mesclar cadastro duplicado</summary>
+        <p>O histórico desta cliente será transferido para o cadastro escolhido. Esta ação não pode ser desfeita.</p>
+        <div class="cliente-mesclar-acoes"><select id="clienteMesclarDestino" class="input"><option value="">Carregando clientes...</option></select><button type="button" class="btn btn-outline" id="btnMesclarCliente">Mesclar</button></div>
+      </details>
+      <h3 class="secao-titulo">Histórico</h3>
+      <div class="cliente-historico">
+        ${agendamentos.length ? agendamentos.map((agendamento) => `
+          <div class="cliente-historico-item">
+            <div><strong>${escaparHtml(agendamento.servicos?.nome || "Serviço")}</strong><span>${formatarDataCliente(agendamento.data_hora)} · ${escaparHtml(agendamento.profissionais?.nome || "Profissional")}</span></div>
+            <div><strong>${formatarMoeda(agendamento.valor)}</strong><span class="status-agendamento status-${agendamento.status}">${escaparHtml(ROTULOS_STATUS[agendamento.status] || agendamento.status)}</span></div>
+          </div>`).join("") : '<p class="menu-vazio">Esta cliente ainda não possui atendimentos.</p>'}
+      </div>`;
+    detalhe.scrollIntoView({ behavior: "smooth", block: "start" });
+    el("btnEditarCliente")?.addEventListener("click", () => abrirFormCliente(cliente));
+    preencherOpcoesMesclagem(cliente.id);
+    el("btnMesclarCliente")?.addEventListener("click", () => mesclarCliente(cliente));
+  } catch (err) {
+    detalhe.innerHTML = `<p class="erro-envio">${escaparHtml(err.message)}</p>`;
+  }
+}
+
+async function irParaPerfilCliente(id) {
+  document.querySelectorAll(".nav-item").forEach((botao) => botao.classList.toggle("active", botao.dataset.aba === "clientes"));
+  document.querySelectorAll(".aba").forEach((secao) => { secao.hidden = secao.dataset.abaConteudo !== "clientes"; });
+  fecharMenuMobile();
+  await carregarClientes();
+  await mostrarCliente(id);
+}
+
+el("btnNovaCliente")?.addEventListener("click", () => abrirFormCliente());
+preencherCamposAniversario();
+el("btnCancelarCliente")?.addEventListener("click", fecharFormCliente);
+el("btnExportarClientes")?.addEventListener("click", () => {
+  window.location.assign("/admin/api/clientes/exportar");
+});
+
+el("campoCorDestaque").addEventListener("input", atualizarStatusContrasteCores);
+el("campoCorFundo").addEventListener("input", atualizarStatusContrasteCores);
+
+async function preencherOpcoesMesclagem(clienteId) {
+  const seletor = el("clienteMesclarDestino");
+  if (!seletor) return;
+  try {
+    const { clientes } = await chamarApi("/admin/api/clientes?filtro=todos");
+    seletor.innerHTML = '<option value="">Escolha o cadastro que ficará</option>';
+    clientes.filter((cliente) => cliente.id !== clienteId).forEach((cliente) => {
+      seletor.add(new Option(`${cliente.nome} · ${aplicarMascaraTelefone(cliente.telefone)}`, cliente.id));
+    });
+  } catch {
+    seletor.innerHTML = '<option value="">Não foi possível carregar clientes</option>';
+  }
+}
+
+async function mesclarCliente(origem) {
+  const destinoId = el("clienteMesclarDestino")?.value;
+  if (!destinoId) return alert("Escolha o cadastro que deve permanecer.");
+  if (!confirm(`Mesclar “${origem.nome}” no cadastro selecionado? O histórico será transferido e este cadastro será removido.`)) return;
+  try {
+    const { cliente_id: clienteDestinoId } = await chamarApi(`/admin/api/clientes/${origem.id}/mesclar`, {
+      method: "POST",
+      body: JSON.stringify({ destino_id: destinoId }),
+    });
+    clienteSelecionadaId = clienteDestinoId;
+    await carregarClientes();
+    await mostrarCliente(clienteDestinoId);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+el("clienteTelefone")?.addEventListener("input", (evento) => {
+  evento.target.value = aplicarMascaraTelefone(evento.target.value);
+});
+el("buscaClientes")?.addEventListener("input", () => {
+  clearTimeout(temporizadorBuscaClientes);
+  temporizadorBuscaClientes = setTimeout(carregarClientes, 250);
+});
+el("filtroClientes")?.addEventListener("change", carregarClientes);
+el("formCliente")?.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
+  const botao = el("btnSalvarCliente");
+  const id = el("clienteId").value;
+  const erro = el("clienteFormErro");
+  botao.disabled = true;
+  erro.hidden = true;
+  try {
+    await chamarApi(id ? `/admin/api/clientes/${id}` : "/admin/api/clientes", {
+      method: id ? "PUT" : "POST",
+      body: JSON.stringify({
+        nome: el("clienteNome").value,
+        telefone: el("clienteTelefone").value,
+        aniversario_dia: el("clienteAniversarioDia").value,
+        aniversario_mes: el("clienteAniversarioMes").value,
+        tags: el("clienteTags").value,
+        preferencias: el("clientePreferencias").value,
+        observacoes: el("clienteObservacoes").value,
+        alergias: el("clienteAlergias").value,
+        consentimento_alergias: el("clienteConsentimentoAlergias").checked,
+      }),
+    });
+    fecharFormCliente();
+    await carregarClientes();
+  } catch (err) {
+    erro.textContent = err.message;
+    erro.hidden = false;
+  } finally {
+    botao.disabled = false;
+  }
+});
+
+function atualizarCampanhaInativas() {
+  const inativas = clientesAtuais.filter((cliente) => cliente.inativa);
+  el("campanhaContagem").textContent = inativas.length
+    ? `${inativas.length} cliente(s) inativa(s) na lista atual.`
+    : "Nenhuma cliente inativa na lista atual.";
+  el("btnAbrirProximaCampanha").disabled = !inativas.length;
+}
+
+el("btnCampanhaInativas")?.addEventListener("click", () => {
+  indiceCampanhaInativas = 0;
+  el("campanhaInativas").hidden = false;
+  atualizarCampanhaInativas();
+});
+el("btnFecharCampanha")?.addEventListener("click", () => { el("campanhaInativas").hidden = true; });
+el("btnAbrirProximaCampanha")?.addEventListener("click", () => {
+  const inativas = clientesAtuais.filter((cliente) => cliente.inativa);
+  const cliente = inativas[indiceCampanhaInativas];
+  if (!cliente) return;
+  const texto = el("mensagemCampanha").value.trim().replaceAll("{nome}", cliente.nome.split(" ")[0]);
+  window.open(`https://wa.me/55${String(cliente.telefone).replace(/\D/g, "")}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+  indiceCampanhaInativas += 1;
+  if (indiceCampanhaInativas >= inativas.length) el("btnAbrirProximaCampanha").disabled = true;
+  el("campanhaContagem").textContent = `${Math.min(indiceCampanhaInativas, inativas.length)} de ${inativas.length} conversa(s) preparada(s).`;
+});
 
 // ============================================================
 // NOVO AGENDAMENTO PELO PAINEL
@@ -1595,7 +1976,6 @@ document.querySelectorAll(".sub-aba-item").forEach((btn) => {
       .querySelectorAll(".sub-aba")
       .forEach((secao) => (secao.hidden = secao.dataset.subAbaConteudo !== sub));
 
-    if (sub === "horariosDisponiveisSub") carregarSeletorHorarios();
   });
 });
 
@@ -1652,6 +2032,8 @@ async function carregarServicos() {
 }
 
 function editarServico(s) {
+  el("painelFormServico").open = true;
+  el("tituloFormServico").textContent = "Editar serviço";
   el("servicoEditandoId").value = s.id;
   el("servicoNome").value = s.nome;
   el("servicoDuracao").value = s.duracao_minutos;
@@ -1675,6 +2057,7 @@ function cancelarEdicaoServico() {
   el("servicoEditandoId").value = "";
   el("formServico").reset();
   atualizarVisibilidadeSinal();
+  el("tituloFormServico").textContent = "Adicionar serviço";
   el("btnSalvarServico").textContent = "Adicionar serviço";
   el("btnCancelarEdicaoServico").hidden = true;
 }
@@ -1811,11 +2194,13 @@ async function carregarProfissionais() {
             <span>${escaparHtml(nomesServicos)}</span>
           </div>
           <div class="item-card-acoes">
+            <button class="btn-mini" data-acao="agenda">Agenda</button>
             <button class="btn-mini" data-acao="editar">Editar</button>
             <button class="btn-mini" data-acao="toggle">${p.ativo ? "Desativar" : "Ativar"}</button>
             <button class="btn-mini btn-mini-perigo" data-acao="excluir">Excluir</button>
           </div>
         `;
+        item.querySelector('[data-acao="agenda"]').addEventListener("click", () => abrirAgendaProfissional(p));
         item.querySelector('[data-acao="editar"]').addEventListener("click", () => editarProfissional(p));
         item.querySelector('[data-acao="toggle"]').addEventListener("click", () => alternarAtivoProfissional(p));
         item.querySelector('[data-acao="excluir"]').addEventListener("click", () => excluirProfissional(p.id));
@@ -1841,6 +2226,8 @@ function montarCheckboxesServicos(idsMarcados = []) {
 }
 
 function editarProfissional(p) {
+  el("painelFormProfissional").open = true;
+  el("tituloFormProfissional").textContent = "Editar profissional";
   el("profissionalEditandoId").value = p.id;
   el("profissionalNome").value = p.nome;
   el("profissionalFotoUrl").value = p.foto_url || "";
@@ -1862,6 +2249,7 @@ function cancelarEdicaoProfissional() {
   el("previewFotoProfissional").hidden = true;
   el("profissionalFotoStatus").textContent = "";
   montarCheckboxesServicos([]);
+  el("tituloFormProfissional").textContent = "Adicionar profissional";
   el("btnSalvarProfissional").textContent = "Adicionar profissional";
   el("btnCancelarEdicaoProfissional").hidden = true;
 }
@@ -2120,44 +2508,137 @@ el("horarioProfissionalSelect").addEventListener("change", () => {
   if (profissional) montarGradeHorarios(profissional);
 });
 
+el("horarioModoAgenda").addEventListener("change", async () => {
+  const profissional = pegarProfissionalAtual();
+  if (!profissional) return;
+  try {
+    await chamarApi(`/admin/api/profissionais/${profissional.id}`, { method: "PUT", body: JSON.stringify({ modo_agenda: el("horarioModoAgenda").value }) });
+    profissional.modo_agenda = el("horarioModoAgenda").value;
+    montarGradeHorarios(profissional);
+  } catch (err) { alert(err.message); }
+});
+
 function montarGradeHorarios(profissional) {
+  el("horarioModoAgenda").value = profissional.modo_agenda || "semanal";
+  const flexivel = profissional.modo_agenda === "flexivel";
+  el("gradeHorarios").hidden = flexivel;
+  el("agendaFlexivel").hidden = !flexivel;
+  el("horariosDescricao").textContent = flexivel
+    ? "Publique horários em datas reais. A página pública mostra somente os próximos 7 dias."
+    : "Defina os períodos de trabalho. Os horários de agendamento são calculados automaticamente conforme cada serviço.";
+  if (flexivel) return montarAgendaFlexivel(profissional);
   const grade = el("gradeHorarios");
   grade.innerHTML = "";
 
-  const horarios = profissional.horarios_disponiveis || {};
+  const horarios = obterHorariosSemanais(profissional);
 
+  const formulario = document.createElement("div");
+  formulario.className = "periodo-trabalho-form";
+  formulario.innerHTML = `
+    <strong>Adicionar período de trabalho</strong>
+    <p>Ex.: de segunda a sexta, das 09:00 às 18:00.</p>
+    <p class="periodo-trabalho-aviso"><strong>Tem pausa para almoço?</strong> Divida o dia em dois períodos: por exemplo, 09:00 às 12:00 e depois 13:00 às 18:00. Assim nenhum horário será oferecido durante a pausa.</p>
+    <div class="periodo-trabalho-campos">
+      <label>Do dia<select class="input" data-campo="inicio-dia">${DIAS_ABREV.map((dia, indice) => `<option value="${indice}">${dia}</option>`).join("")}</select></label>
+      <label>Até o dia<select class="input" data-campo="fim-dia">${DIAS_ABREV.map((dia, indice) => `<option value="${indice}" ${indice === 5 ? "selected" : ""}>${dia}</option>`).join("")}</select></label>
+      <label>Início<input class="input" type="time" data-campo="inicio" value="09:00" /></label>
+      <label>Fim<input class="input" type="time" data-campo="fim" value="18:00" /></label>
+      <button type="button" class="btn btn-outline" data-acao="adicionar-periodo">+ Adicionar período</button>
+    </div>
+  `;
+  formulario.querySelector('[data-acao="adicionar-periodo"]').addEventListener("click", () => {
+    const inicioDia = Number(formulario.querySelector('[data-campo="inicio-dia"]').value);
+    const fimDia = Number(formulario.querySelector('[data-campo="fim-dia"]').value);
+    const inicio = formulario.querySelector('[data-campo="inicio"]').value;
+    const fim = formulario.querySelector('[data-campo="fim"]').value;
+    if (!inicio || !fim || inicio >= fim) return alert("Informe um início anterior ao fim do expediente.");
+    if (fimDia < inicioDia) return alert("Escolha um intervalo de dias em ordem, por exemplo segunda até sexta.");
+    for (let dia = inicioDia; dia <= fimDia; dia++) adicionarPeriodoTrabalho(profissional, dia, { inicio, fim }, false);
+    salvarHorariosProfissional(profissional).then(() => montarGradeHorarios(profissional));
+  });
+  grade.appendChild(formulario);
+
+  const titulo = document.createElement("h3");
+  titulo.className = "periodo-trabalho-titulo";
+  titulo.textContent = "Como ficou a semana";
+  grade.appendChild(titulo);
   for (let d = 0; d <= 6; d++) {
-    const lista = horarios[d] ?? horarios[String(d)] ?? [];
-
     const linha = document.createElement("div");
     linha.className = "linha-grade-dia";
-    linha.dataset.dia = d;
-
-    linha.innerHTML = `
-      <div class="linha-grade-dia-topo">
-        <span class="linha-grade-dia-nome">${DIAS_ABREV[d]}</span>
-        <div class="linha-grade-dia-add">
-          <input type="time" class="input input-novo-horario" />
-          <button type="button" data-acao="adicionar">+ Adicionar</button>
-        </div>
-      </div>
-      <div class="chips-horarios"></div>
-    `;
-
-    renderizarChipsHorario(linha, lista, profissional.id, d);
-
-    linha.querySelector('[data-acao="adicionar"]').addEventListener("click", () => {
-      const input = linha.querySelector(".input-novo-horario");
-      if (!input.value) return;
-      adicionarHorario(profissional.id, d, input.value);
-      input.value = "";
-    });
-
+    linha.innerHTML = `<div class="linha-grade-dia-topo"><span class="linha-grade-dia-nome">${DIAS_ABREV[d]}</span></div><div class="chips-horarios"></div>`;
+    renderizarPeriodosTrabalho(linha, horarios[d] ?? horarios[String(d)] ?? [], profissional.id, d);
     grade.appendChild(linha);
   }
 }
 
-function renderizarChipsHorario(linha, lista, profissionalId, dia) {
+async function abrirAgendaProfissional(profissional) {
+  try {
+    const { profissionais } = await chamarApi("/admin/api/profissionais");
+    profissionaisParaHorarios = profissionais || [];
+    const profissionalAtual = profissionaisParaHorarios.find((item) => item.id === profissional.id);
+    if (!profissionalAtual) throw new Error("Profissional não encontrada.");
+
+    const seletor = el("horarioProfissionalSelect");
+    seletor.innerHTML = `<option value="${profissionalAtual.id}">${escaparHtml(profissionalAtual.nome)}</option>`;
+    seletor.value = profissionalAtual.id;
+    el("tituloAgendaProfissional").textContent = profissionalAtual.nome;
+    el("painelAgendaProfissional").hidden = false;
+    montarGradeHorarios(profissionalAtual);
+    el("painelAgendaProfissional").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+el("btnFecharAgendaProfissional").addEventListener("click", () => {
+  el("painelAgendaProfissional").hidden = true;
+  el("gradeHorarios").innerHTML = "";
+  el("agendaFlexivelSemana").innerHTML = "";
+});
+
+async function montarAgendaFlexivel(profissional) {
+  if (!profissional) return;
+  const hoje = new Date();
+  hoje.setHours(12, 0, 0, 0);
+  const datas = Array.from({ length: 7 }, (_, indice) => {
+    const data = new Date(hoje);
+    data.setDate(data.getDate() + indice);
+    return data.toISOString().slice(0, 10);
+  });
+  try {
+    const { disponibilidades } = await chamarApi(`/admin/api/profissionais/${profissional.id}/disponibilidades?inicio=${datas[0]}&fim=${datas.at(-1)}`);
+    profissional.horarios_flexiveis = datas.reduce((agenda, data) => ({ ...agenda, [data]: [] }), { ...(profissional.horarios_flexiveis || {}) });
+    (disponibilidades || []).forEach((item) => { profissional.horarios_flexiveis[item.data] = [...(profissional.horarios_flexiveis[item.data] || []), String(item.hora).slice(0, 5)]; });
+  } catch (err) { alert(err.message); return; }
+  const container = el("agendaFlexivelSemana");
+  container.innerHTML = "";
+  datas.forEach((data) => {
+    const dataLocal = new Date(`${data}T12:00:00`);
+    const lista = profissional.horarios_flexiveis?.[data] || [];
+    const linha = document.createElement("div");
+    linha.className = "linha-grade-dia";
+    linha.innerHTML = `<div class="linha-grade-dia-topo"><span class="linha-grade-dia-nome">${dataLocal.toLocaleDateString("pt-BR", { weekday: "long" })}</span><small>${dataLocal.toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}</small><div class="linha-grade-dia-add"><input type="time" class="input" /><button type="button">+ Adicionar</button></div></div><div class="chips-horarios"></div>`;
+    renderizarChipsHorario(linha, lista, profissional, data);
+    linha.querySelector("button").addEventListener("click", () => {
+      const input = linha.querySelector('input[type="time"]');
+      if (!input.value) return;
+      salvarHorariosFlexiveis(profissional, data, [...new Set([...lista, input.value])].sort());
+    });
+    container.appendChild(linha);
+  });
+}
+
+async function salvarHorariosFlexiveis(profissional, data, horarios) {
+  try {
+    await chamarApi(`/admin/api/profissionais/${profissional.id}/disponibilidades`, {
+      method: "PUT", body: JSON.stringify({ inicio: data, fim: data, dias: [{ data, horarios }] }),
+    });
+    profissional.horarios_flexiveis = { ...(profissional.horarios_flexiveis || {}), [data]: horarios };
+    montarAgendaFlexivel(profissional);
+  } catch (err) { alert(err.message); }
+}
+
+function renderizarChipsHorario(linha, lista, profissional, data) {
   const container = linha.querySelector(".chips-horarios");
   container.innerHTML = "";
 
@@ -2171,7 +2652,7 @@ function renderizarChipsHorario(linha, lista, profissionalId, dia) {
     chip.className = "chip-horario";
     chip.innerHTML = `${hora} <button type="button" aria-label="Remover">×</button>`;
     chip.querySelector("button").addEventListener("click", () => {
-      removerHorario(profissionalId, dia, hora);
+      salvarHorariosFlexiveis(profissional, data, lista.filter((item) => item !== hora));
     });
     container.appendChild(chip);
   });
@@ -2193,34 +2674,51 @@ async function salvarHorariosProfissional(profissional) {
   }
 }
 
-function adicionarHorario(profissionalId, dia, hora) {
-  const profissional = pegarProfissionalAtual();
-  if (!profissional || profissional.id !== profissionalId) return;
-
-  const horarios = profissional.horarios_disponiveis || {};
+function adicionarPeriodoTrabalho(profissional, dia, periodo, atualizar = true) {
+  const horarios = obterHorariosSemanais(profissional);
   const listaAtual = horarios[dia] ?? horarios[String(dia)] ?? [];
-
-  if (!listaAtual.includes(hora)) {
-    horarios[dia] = [...listaAtual, hora].sort();
+  const existe = listaAtual.some((item) => typeof item === "object" && item.inicio === periodo.inicio && item.fim === periodo.fim);
+  if (!existe) {
+    horarios[dia] = [...listaAtual, periodo].sort((a, b) => String(a.inicio || a).localeCompare(String(b.inicio || b)));
     profissional.horarios_disponiveis = horarios;
-    salvarHorariosProfissional(profissional);
+    if (atualizar) salvarHorariosProfissional(profissional);
   }
-
-  montarGradeHorarios(profissional);
 }
 
-function removerHorario(profissionalId, dia, hora) {
+function renderizarPeriodosTrabalho(linha, lista, profissionalId, dia) {
+  const container = linha.querySelector(".chips-horarios");
+  container.innerHTML = "";
+  if (!lista.length) {
+    container.innerHTML = '<span class="chips-horarios-vazio">Não atende nesse dia</span>';
+    return;
+  }
+  lista.forEach((periodo, indice) => {
+    const texto = typeof periodo === "string" ? `${periodo} (horário antigo)` : `${periodo.inicio} às ${periodo.fim}`;
+    const chip = document.createElement("span");
+    chip.className = "chip-horario";
+    chip.innerHTML = `${texto} <button type="button" aria-label="Remover período">×</button>`;
+    chip.querySelector("button").addEventListener("click", () => removerPeriodoTrabalho(profissionalId, dia, indice));
+    container.appendChild(chip);
+  });
+}
+
+function removerPeriodoTrabalho(profissionalId, dia, indice) {
   const profissional = pegarProfissionalAtual();
   if (!profissional || profissional.id !== profissionalId) return;
-
-  const horarios = profissional.horarios_disponiveis || {};
+  const horarios = obterHorariosSemanais(profissional);
   const listaAtual = horarios[dia] ?? horarios[String(dia)] ?? [];
-
-  horarios[dia] = listaAtual.filter((h) => h !== hora);
+  horarios[dia] = listaAtual.filter((_, itemIndice) => itemIndice !== indice);
   profissional.horarios_disponiveis = horarios;
-  salvarHorariosProfissional(profissional);
+  salvarHorariosProfissional(profissional).then(() => montarGradeHorarios(profissional));
+}
 
-  montarGradeHorarios(profissional);
+function obterHorariosSemanais(profissional) {
+  const valor = profissional?.horarios_disponiveis;
+  if (valor && typeof valor === "object") return valor;
+  if (typeof valor === "string") {
+    try { return JSON.parse(valor) || {}; } catch { return {}; }
+  }
+  return {};
 }
 
 // ============================================================

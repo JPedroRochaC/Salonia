@@ -67,12 +67,16 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 router.put("/:id", requireAuth, async (req, res) => {
-  const { nome, foto_url, ativo } = req.body;
+  const { nome, foto_url, ativo, modo_agenda } = req.body;
   const atualizacoes = {};
 
   if (nome !== undefined) atualizacoes.nome = nome.trim();
   if (foto_url !== undefined) atualizacoes.foto_url = foto_url || null;
   if (ativo !== undefined) atualizacoes.ativo = !!ativo;
+  if (modo_agenda !== undefined) {
+    if (!['semanal', 'flexivel'].includes(modo_agenda)) return res.status(400).json({ erro: "Modo de agenda inválido." });
+    atualizacoes.modo_agenda = modo_agenda;
+  }
 
   if (Object.keys(atualizacoes).length === 0) {
     return res.status(400).json({ erro: "Nenhum campo válido pra atualizar." });
@@ -167,10 +171,9 @@ router.put("/:id/servicos", requireAuth, async (req, res) => {
   res.json({ ok: true, servico_ids: idsValidos });
 });
 
-// substitui a grade de horários disponíveis desse profissional.
-// Formato esperado: { "0": ["08:00","10:00"], "1": [], ... } — chaves "0" a
-// "6" (domingo a sábado, igual Date.getDay() no front público), cada uma com
-// a lista de horários específicos que ela atende naquele dia.
+// Substitui os períodos semanais de trabalho. Cada dia aceita períodos como
+// { inicio: "09:00", fim: "18:00" }. Listas antigas de horários específicos
+// continuam aceitas para não quebrar agendas já cadastradas.
 router.put("/:id/horarios", requireAuth, async (req, res) => {
   const { horarios_disponiveis } = req.body;
 
@@ -178,14 +181,28 @@ router.put("/:id/horarios", requireAuth, async (req, res) => {
     return res.status(400).json({ erro: "Formato de horários inválido." });
   }
 
-  // validação simples: só aceita chaves "0"-"6" e valores em formato HH:MM
+  // Aceita chaves "0"-"6" (domingo a sábado), horários antigos HH:MM e
+  // períodos de trabalho válidos.
   const regexHora = /^([01]\d|2[0-3]):[0-5]\d$/;
   const limpo = {};
 
   for (let d = 0; d <= 6; d++) {
     const lista = horarios_disponiveis[d] ?? horarios_disponiveis[String(d)];
     if (!Array.isArray(lista)) continue;
-    limpo[d] = [...new Set(lista.filter((h) => regexHora.test(h)))].sort();
+    const chaves = new Set();
+    limpo[d] = lista.flatMap((item) => {
+      if (typeof item === "string" && regexHora.test(item)) {
+        const chave = `hora:${item}`;
+        if (chaves.has(chave)) return [];
+        chaves.add(chave);
+        return [item];
+      }
+      if (!item || typeof item !== "object" || !regexHora.test(item.inicio) || !regexHora.test(item.fim) || item.inicio >= item.fim) return [];
+      const chave = `periodo:${item.inicio}-${item.fim}`;
+      if (chaves.has(chave)) return [];
+      chaves.add(chave);
+      return [{ inicio: item.inicio, fim: item.fim }];
+    }).sort((a, b) => String(a.inicio || a).localeCompare(String(b.inicio || b)));
   }
 
   const { data, error } = await supabase
@@ -205,6 +222,49 @@ router.put("/:id/horarios", requireAuth, async (req, res) => {
   }
 
   res.json({ ok: true, profissional: data });
+});
+
+// Horários de datas reais, usados no modo flexível. A grade recebida substitui
+// apenas o intervalo enviado — datas antigas ficam preservadas para histórico.
+router.put("/:id/disponibilidades", requireAuth, async (req, res) => {
+  const { inicio, fim, dias } = req.body || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(inicio || "") || !/^\d{4}-\d{2}-\d{2}$/.test(fim || "") || !Array.isArray(dias)) {
+    return res.status(400).json({ erro: "Informe o período e os horários por data." });
+  }
+  const { data: profissional } = await supabase.from("profissionais").select("id").eq("id", req.params.id).eq("salao_id", req.salao.id).maybeSingle();
+  if (!profissional) return res.status(404).json({ erro: "Profissional não encontrada." });
+
+  const regexHora = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const registros = dias.flatMap((dia) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia?.data || "") || dia.data < inicio || dia.data > fim) return [];
+    return [...new Set((dia.horarios || []).filter((hora) => regexHora.test(hora)))].map((hora) => ({
+      salao_id: req.salao.id, profissional_id: profissional.id, data: dia.data, hora,
+    }));
+  });
+
+  const { error: erroExcluir } = await supabase
+    .from("disponibilidades_profissional")
+    .delete()
+    .eq("profissional_id", profissional.id)
+    .gte("data", inicio)
+    .lte("data", fim);
+  if (erroExcluir) return res.status(500).json({ erro: "Erro ao atualizar a agenda flexível." });
+  if (registros.length) {
+    const { error: erroInserir } = await supabase.from("disponibilidades_profissional").insert(registros);
+    if (erroInserir) return res.status(500).json({ erro: "Erro ao salvar os horários." });
+  }
+  res.json({ ok: true });
+});
+
+router.get("/:id/disponibilidades", requireAuth, async (req, res) => {
+  const { inicio, fim } = req.query;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(inicio || "") || !/^\d{4}-\d{2}-\d{2}$/.test(fim || "")) {
+    return res.status(400).json({ erro: "Informe um período válido." });
+  }
+  const { data, error } = await supabase.from("disponibilidades_profissional")
+    .select("data, hora").eq("profissional_id", req.params.id).eq("salao_id", req.salao.id).gte("data", inicio).lte("data", fim).order("data").order("hora");
+  if (error) return res.status(500).json({ erro: "Erro ao carregar os horários." });
+  res.json({ ok: true, disponibilidades: data || [] });
 });
 
 export default router;
