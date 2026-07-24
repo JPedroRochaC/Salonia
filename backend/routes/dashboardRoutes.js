@@ -74,7 +74,7 @@ router.get("/", requireAuth, async (req, res) => {
   const { data: proximosBrutos, error: erroProximos } = await supabase
     .from("agendamentos")
     .select(
-      "id, data_hora, valor, status, clientes(nome), servicos(nome), profissionais(nome)",
+      "id, data_hora, valor, status, foto_referencia_url, comprovante_url, clientes(nome, telefone), servicos(nome), profissionais(nome)",
     )
     .eq("salao_id", salaoId)
     .gte("data_hora", agora)

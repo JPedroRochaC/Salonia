@@ -20,10 +20,31 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 router.post("/", requireAuth, async (req, res) => {
-  const { nome, duracao_minutos, preco } = req.body;
+  const {
+    nome,
+    duracao_minutos,
+    preco,
+    cobra_sinal,
+    tipo_cobranca_sinal,
+    valor_sinal_fixo,
+    percentual_sinal,
+  } = req.body;
 
   if (!nome?.trim() || !duracao_minutos || preco === undefined || preco === null) {
     return res.status(400).json({ erro: "Preencha nome, duração e preço." });
+  }
+
+  const cobraSinal = cobra_sinal !== false; // default: cobra sinal
+  const tipoCobranca = cobraSinal ? (tipo_cobranca_sinal || "fixo") : null;
+
+  if (cobraSinal && tipoCobranca === "fixo" && (valor_sinal_fixo === undefined || valor_sinal_fixo === null || valor_sinal_fixo === "")) {
+    return res.status(400).json({ erro: "Informe o valor fixo do sinal." });
+  }
+  if (cobraSinal && tipoCobranca === "percentual" && (percentual_sinal === undefined || percentual_sinal === null || percentual_sinal === "")) {
+    return res.status(400).json({ erro: "Informe o percentual do sinal." });
+  }
+  if (cobraSinal && tipoCobranca !== "fixo" && tipoCobranca !== "percentual") {
+    return res.status(400).json({ erro: "Tipo de cobrança do sinal inválido." });
   }
 
   const { data, error } = await supabase
@@ -34,6 +55,12 @@ router.post("/", requireAuth, async (req, res) => {
       duracao_minutos: Number(duracao_minutos),
       preco: Number(preco),
       ativo: true,
+      cobra_sinal: cobraSinal,
+      tipo_cobranca_sinal: tipoCobranca,
+      valor_sinal_fixo:
+        cobraSinal && tipoCobranca === "fixo" ? Number(valor_sinal_fixo) : null,
+      percentual_sinal:
+        cobraSinal && tipoCobranca === "percentual" ? Number(percentual_sinal) : null,
     })
     .select()
     .single();
@@ -47,13 +74,54 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 router.put("/:id", requireAuth, async (req, res) => {
-  const { nome, duracao_minutos, preco, ativo } = req.body;
+  const {
+    nome,
+    duracao_minutos,
+    preco,
+    ativo,
+    cobra_sinal,
+    tipo_cobranca_sinal,
+    valor_sinal_fixo,
+    percentual_sinal,
+  } = req.body;
   const atualizacoes = {};
 
   if (nome !== undefined) atualizacoes.nome = nome.trim();
   if (duracao_minutos !== undefined) atualizacoes.duracao_minutos = Number(duracao_minutos);
   if (preco !== undefined) atualizacoes.preco = Number(preco);
   if (ativo !== undefined) atualizacoes.ativo = !!ativo;
+
+  // O sinal só é processado quando o form de serviço manda esse bloco
+  // (o botão de ativar/desativar manda só { ativo }, sem tocar no sinal).
+  if (cobra_sinal !== undefined) {
+    const cobraSinal = cobra_sinal !== false;
+    const tipoCobranca = cobraSinal ? (tipo_cobranca_sinal || "fixo") : null;
+
+    if (
+      cobraSinal &&
+      tipoCobranca === "fixo" &&
+      (valor_sinal_fixo === undefined || valor_sinal_fixo === null || valor_sinal_fixo === "")
+    ) {
+      return res.status(400).json({ erro: "Informe o valor fixo do sinal." });
+    }
+    if (
+      cobraSinal &&
+      tipoCobranca === "percentual" &&
+      (percentual_sinal === undefined || percentual_sinal === null || percentual_sinal === "")
+    ) {
+      return res.status(400).json({ erro: "Informe o percentual do sinal." });
+    }
+    if (cobraSinal && tipoCobranca !== "fixo" && tipoCobranca !== "percentual") {
+      return res.status(400).json({ erro: "Tipo de cobrança do sinal inválido." });
+    }
+
+    atualizacoes.cobra_sinal = cobraSinal;
+    atualizacoes.tipo_cobranca_sinal = tipoCobranca;
+    atualizacoes.valor_sinal_fixo =
+      cobraSinal && tipoCobranca === "fixo" ? Number(valor_sinal_fixo) : null;
+    atualizacoes.percentual_sinal =
+      cobraSinal && tipoCobranca === "percentual" ? Number(percentual_sinal) : null;
+  }
 
   if (Object.keys(atualizacoes).length === 0) {
     return res.status(400).json({ erro: "Nenhum campo válido pra atualizar." });

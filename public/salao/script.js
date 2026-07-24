@@ -411,7 +411,7 @@ async function iniciarWizard() {
   });
   el("btnRemoverReferencia").addEventListener("click", removerReferencia);
 
-  configurarPagamentoSinal();
+  configurarCopiarPixConfirmacao();
 
   await carregarServicos();
 }
@@ -666,7 +666,25 @@ function validarDados() {
     minute: "2-digit",
   });
   el("resumoValor").textContent = `R$ ${Number(servico.preco).toFixed(2)}`;
-  el("avisoSinal").hidden = !salao.exige_sinal;
+
+  const valorSinalResumo = calcularValorSinal(servico);
+  const exigeSinal = valorSinalResumo !== null;
+
+  el("avisoSinal").hidden = !exigeSinal;
+  if (exigeSinal) {
+    el("avisoSinal").textContent =
+      `Este serviço exige sinal de R$ ${valorSinalResumo.toFixed(2)} para confirmar o horário.`;
+  }
+
+  el("pixBloco").hidden = !exigeSinal;
+  el("avisoComprovante").hidden = !exigeSinal;
+  if (exigeSinal) {
+    el("pixValorConfirmacao").textContent = `R$ ${valorSinalResumo.toFixed(2)}`;
+    el("pixChaveConfirmacao").textContent =
+      salao.chave_pix || "Chave não configurada — fale com o salão.";
+    el("pixTitularConfirmacao").textContent = salao.titular_pix || "";
+    el("pixTitularConfirmacao").hidden = !salao.titular_pix;
+  }
 
   irParaPasso(4);
 }
@@ -690,13 +708,21 @@ function irParaWhatsapp() {
     minute: "2-digit",
   });
 
-  const mensagem =
+  let mensagem =
     `Olá! Gostaria de confirmar meu agendamento:\n\n` +
     `Nome: ${nomeCliente}\n` +
     `Serviço: ${servico?.nome || ""}\n` +
     `Profissional: ${profissional?.nome || ""}\n` +
     `Data: ${dataTexto}\n` +
     `Horário: ${horaTexto}`;
+
+  const valorSinal = calcularValorSinal(servico);
+  if (valorSinal !== null) {
+    mensagem +=
+      `\n\nSinal: R$ ${valorSinal.toFixed(2)}\n` +
+      `Chave Pix: ${salao?.chave_pix || "combinar com o salão"}\n` +
+      `Já vou enviar o comprovante do pagamento por aqui.`;
+  }
 
   window.location.href = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
   return true;
@@ -804,7 +830,7 @@ async function confirmarAgendamento() {
         data_hora: horario.toISOString(),
         duracao_minutos: servico.duracao_minutos,
         valor: servico.preco,
-        status: salao.exige_sinal
+        status: servicoCobraSinal(servico)
           ? "aguardando_pagamento"
           : "aguardando_confirmacao",
       }),
@@ -832,12 +858,10 @@ async function confirmarAgendamento() {
     btn.disabled = false;
     btn.textContent = "Solicitar agendamento";
 
-    if (salao.exige_sinal) {
-      prepararTelaPagamento();
-      irParaPasso("pagamento");
-    } else if (!irParaWhatsapp()) {
-      el("mensagemFinal").textContent =
-        `${salao.nome} vai confirmar seu horário em breve pelo WhatsApp.`;
+    if (!irParaWhatsapp()) {
+      el("mensagemFinal").textContent = servicoCobraSinal(servico)
+        ? `${salao.nome} vai confirmar seu horário após o pagamento do sinal. Envie o comprovante pelo WhatsApp.`
+        : `${salao.nome} vai confirmar seu horário em breve pelo WhatsApp.`;
       el("voltarInicioBtn").href = `/${slug}`;
       irParaPasso("concluido");
     }
@@ -852,36 +876,37 @@ async function confirmarAgendamento() {
 // ============================================================
 // PAGAMENTO DO SINAL
 // ============================================================
-function prepararTelaPagamento() {
-  const { salao, servico } = estado;
-  el("pixChave").textContent =
-    salao.chave_pix || "Chave não configurada — fale com o salão.";
+// Calcula quanto o cliente deve pagar de sinal pra este serviço.
+// Regras (configuradas por serviço, no admin):
+// - servico.cobra_sinal === false  -> não cobra sinal (retorna null)
+// - servico.tipo_cobranca_sinal === "percentual" -> % em cima de servico.preco
+// - servico.tipo_cobranca_sinal === "fixo" (ou não informado) -> valor fixo
+function calcularValorSinal(servico) {
+  if (!servico || servico.cobra_sinal === false) return null;
 
-  const valorSinal =
-    salao.valor_sinal != null
-      ? Number(salao.valor_sinal)
-      : Number(servico.preco);
-  el("pixValor").textContent = `R$ ${valorSinal.toFixed(2)}`;
+  if (servico.tipo_cobranca_sinal === "percentual") {
+    const percentual = Number(servico.percentual_sinal || 0);
+    return Number((Number(servico.preco) * (percentual / 100)).toFixed(2));
+  }
 
-  el("comprovanteBloco").hidden = !estado.agendamentoId;
-
-  el("inputComprovante").value = "";
-  el("uploadLabelTexto").textContent = "Escolher arquivo (foto ou PDF)";
-  el("inputComprovante")
-    .closest(".upload-label")
-    .classList.remove("tem-arquivo");
-  esconderErroPagamento();
-  const btnEnviar = el("btnEnviarComprovante");
-  btnEnviar.disabled = false;
-  btnEnviar.textContent = "Enviar comprovante";
+  // tipo "fixo" (default): usa o valor fixo configurado no serviço;
+  // se por algum motivo não tiver valor fixo salvo, cai pro preço cheio
+  // do serviço, mantendo o comportamento antigo como fallback de segurança.
+  return servico.valor_sinal_fixo != null
+    ? Number(servico.valor_sinal_fixo)
+    : Number(servico.preco);
 }
 
-function configurarPagamentoSinal() {
-  el("btnCopiarPix").addEventListener("click", () => {
+function servicoCobraSinal(servico) {
+  return calcularValorSinal(servico) !== null;
+}
+
+function configurarCopiarPixConfirmacao() {
+  el("btnCopiarPixConfirmacao").addEventListener("click", () => {
     const chave = estado.salao?.chave_pix;
     if (!chave) return;
     navigator.clipboard.writeText(chave).then(() => {
-      const btn = el("btnCopiarPix");
+      const btn = el("btnCopiarPixConfirmacao");
       const original = btn.textContent;
       btn.textContent = "Copiado!";
       setTimeout(() => {
@@ -889,95 +914,6 @@ function configurarPagamentoSinal() {
       }, 1500);
     });
   });
-
-  el("inputComprovante").addEventListener("change", (e) => {
-    const arquivo = e.target.files[0];
-    const label = e.target.closest(".upload-label");
-    if (arquivo) {
-      el("uploadLabelTexto").textContent = arquivo.name;
-      label.classList.add("tem-arquivo");
-    } else {
-      el("uploadLabelTexto").textContent = "Escolher arquivo (foto ou PDF)";
-      label.classList.remove("tem-arquivo");
-    }
-  });
-
-  el("btnEnviarComprovante").addEventListener("click", enviarComprovante);
-  el("btnPularComprovante").addEventListener("click", pularComprovante);
-}
-
-function mostrarErroPagamento(msg) {
-  const erroEl = el("erroPagamento");
-  erroEl.textContent = msg;
-  erroEl.hidden = false;
-}
-
-function esconderErroPagamento() {
-  el("erroPagamento").hidden = true;
-}
-
-async function enviarComprovante() {
-  const arquivo = el("inputComprovante").files[0];
-  esconderErroPagamento();
-
-  if (!arquivo) {
-    mostrarErroPagamento("Selecione um arquivo antes de enviar.");
-    return;
-  }
-
-  const btn = el("btnEnviarComprovante");
-  btn.disabled = true;
-  btn.textContent = "Enviando...";
-
-  const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
-  const caminho = `${slug}/${estado.agendamentoId}-${Date.now()}.${extensao}`;
-
-  const { error: erroUpload } = await sb.storage
-    .from("comprovantes")
-    .upload(caminho, arquivo);
-
-  if (erroUpload) {
-    console.error("Erro ao enviar comprovante:", erroUpload);
-    mostrarErroPagamento("Não foi possível enviar o comprovante. Tente novamente.");
-    btn.disabled = false;
-    btn.textContent = "Enviar comprovante";
-    return;
-  }
-
-  const { data: urlData } = sb.storage
-    .from("comprovantes")
-    .getPublicUrl(caminho);
-
-  const { error: erroRpc } = await sb.rpc("anexar_comprovante", {
-    p_agendamento_id: estado.agendamentoId,
-    p_comprovante_url: urlData.publicUrl,
-  });
-
-  if (erroRpc) {
-    console.error("Erro ao anexar comprovante:", erroRpc);
-    mostrarErroPagamento(
-      "Comprovante enviado, mas houve um erro ao vincular. Avise o salão pelo WhatsApp."
-    );
-    btn.disabled = false;
-    btn.textContent = "Enviar comprovante";
-    return;
-  }
-
-  if (!irParaWhatsapp()) {
-    el("mensagemFinal").textContent =
-      `Recebemos seu comprovante! ${estado.salao.nome} vai confirmar seu horário em breve.`;
-    el("voltarInicioBtn").href = `/${slug}`;
-    irParaPasso("concluido");
-  }
-}
-
-function pularComprovante() {
-  if (!irParaWhatsapp()) {
-    el("mensagemFinal").textContent =
-      `${estado.salao.nome} vai confirmar seu horário após o pagamento antecipado. Você pode enviar o comprovante depois pelo WhatsApp.`;
-    el("voltarInicioBtn").href = `/${slug}`;
-    irParaPasso("concluido");
-  }
 }
 
 // ============================================================

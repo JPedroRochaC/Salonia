@@ -320,6 +320,25 @@ textarea.input { resize: vertical; font-family: inherit; min-height: 90px; }
 }
 .painel.sidebar-aberta .sidebar-overlay { display: block; opacity: 1; }
 
+.btn-mini-referencia {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-mini-referencia:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 /* ===== SIDEBAR ===== */
 .sidebar {
   width: var(--sidebar-w);

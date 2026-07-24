@@ -281,6 +281,7 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
       .querySelectorAll(".aba")
       .forEach((secao) => (secao.hidden = secao.dataset.abaConteudo !== aba));
 
+    if (aba === "dashboard") carregarDashboard();
     if (aba === "faq") carregarFaq();
     if (aba === "agendamentos") carregarAgendamentos();
     if (aba === "servicos") carregarServicosEProfissionais();
@@ -321,6 +322,7 @@ async function carregarDashboard() {
         });
 
         const rotulo = ROTULOS_STATUS[ag.status] || ag.status;
+        const clicavel = ag.status === "aguardando_pagamento" || ag.status === "aguardando_confirmacao";
 
         item.innerHTML = `
           <div class="agendamento-info">
@@ -332,9 +334,52 @@ async function carregarDashboard() {
             </span>
           </div>
           <div class="agendamento-lado">
-            <span class="status-badge status-${ag.status}">${rotulo}</span>
+            ${
+              ag.foto_referencia_url
+                ? `<button type="button" class="btn-mini btn-mini-referencia" data-foto="${ag.foto_referencia_url}">
+     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+       <circle cx="12" cy="13" r="4"/>
+     </svg>
+     Referência
+   </button>`
+                : ""
+            }
+            ${
+              ag.comprovante_url
+                ? `<button type="button" class="btn-mini btn-mini-comprovante" data-comprovante="${ag.comprovante_url}">
+     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+       <path d="M14 2v6h6"/>
+       <line x1="9" y1="13" x2="15" y2="13"/>
+       <line x1="9" y1="17" x2="15" y2="17"/>
+     </svg>
+     Comprovante
+   </button>`
+                : ""
+            }
+            <span class="status-badge status-${ag.status}" ${clicavel ? 'style="cursor:pointer;" title="Clique para confirmar ou cancelar"' : ""}>${rotulo}</span>
           </div>
         `;
+
+        const botaoFoto = item.querySelector(".btn-mini-referencia");
+        if (botaoFoto) {
+          botaoFoto.addEventListener("click", () => {
+            window.open(botaoFoto.dataset.foto, "_blank", "noopener");
+          });
+        }
+
+        const botaoComprovante = item.querySelector(".btn-mini-comprovante");
+        if (botaoComprovante) {
+          botaoComprovante.addEventListener("click", () => {
+            window.open(botaoComprovante.dataset.comprovante, "_blank", "noopener");
+          });
+        }
+
+        if (clicavel) {
+          item.querySelector(".status-badge").addEventListener("click", () => abrirDetalheAgendamento(ag));
+        }
+
         lista.appendChild(item);
       });
     }
@@ -361,10 +406,8 @@ function preencherFormPersonalizacao() {
   el("campoInstagram").value = redes.instagram || "";
   el("campoWhatsappRedes").value = redes.whatsapp || "";
 
-  el("campoExigeSinal").checked = !!s.exige_sinal;
-  el("campoValorSinal").value = s.valor_sinal ?? "";
   el("campoChavePix").value = s.chave_pix || "";
-  atualizarBlocoSinal();
+  el("campoTitularPix").value = s.titular_pix || "";
 
   el("campoAtivo").checked = s.ativo !== false;
 }
@@ -408,11 +451,9 @@ el("campoLogoArquivo").addEventListener("change", async () => {
 });
 
 // ---- Sinal / disponibilidade ----
-function atualizarBlocoSinal() {
-  el("blocoSinal").hidden = !el("campoExigeSinal").checked;
-}
-
-el("campoExigeSinal").addEventListener("change", atualizarBlocoSinal);
+// (removido: o sinal agora é configurado por serviço, na aba Serviços —
+// ver blocoConfigSinal em #formServico. A Chave Pix continua no nível
+// do salão, já que é a mesma pra todos os serviços.)
 
 el("formPersonalizacao").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -431,11 +472,8 @@ el("formPersonalizacao").addEventListener("submit", async (e) => {
       instagram: el("campoInstagram").value.trim(),
       whatsapp: el("campoWhatsappRedes").value.trim(),
     },
-    exige_sinal: el("campoExigeSinal").checked,
-    valor_sinal: el("campoValorSinal").value
-      ? Number(el("campoValorSinal").value)
-      : null,
     chave_pix: el("campoChavePix").value.trim() || null,
+    titular_pix: el("campoTitularPix").value.trim() || null,
     ativo: el("campoAtivo").checked,
   };
 
@@ -1026,24 +1064,47 @@ function abrirDetalheAgendamento(ag) {
         ? `<span class="agendamento-comprovante" style="display:block; margin-bottom:10px;"><a href="${ag.comprovante_url}" target="_blank" rel="noopener">Ver comprovante</a></span>`
         : ""
     }
+    ${
+      ag.foto_referencia_url
+        ? `<span class="agendamento-foto-referencia" style="display:block; margin-bottom:10px;">
+             <a href="${ag.foto_referencia_url}" target="_blank" rel="noopener">
+               <img src="${ag.foto_referencia_url}" alt="Foto de referência enviada pelo cliente" style="max-width:120px; max-height:120px; border-radius:8px; display:block; margin-bottom:4px;" />
+               Ver foto de referência
+             </a>
+           </span>`
+        : ""
+    }
     <span class="status-badge status-${ag.status}">${rotulo}</span>
     <div class="agendamento-acoes" id="agendamentoPopoverAcoes" style="margin-top:14px; justify-content:flex-start;"></div>
   `;
 
   const acoes = el("agendamentoPopoverAcoes");
-  const botao = (texto, novoStatus, classe = "") => {
+  const botao = (texto, novoStatus, classe = "", aoMudar) => {
     const b = document.createElement("button");
     b.className = `btn-mini ${classe}`;
     b.textContent = texto;
     b.addEventListener("click", async () => {
       await mudarStatusAgendamento(ag.id, novoStatus);
+      if (aoMudar) aoMudar();
       fecharDetalheAgendamento();
     });
     return b;
   };
 
+  const enviarConfirmacaoWhatsapp = () => {
+    const telefoneLimpo = (ag.clientes?.telefone || "").replace(/\D/g, "");
+    if (!telefoneLimpo) return;
+
+    const hora = new Date(ag.data_hora).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const dataFormatada = new Date(ag.data_hora).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+    const texto = `Olá, ${ag.clientes?.nome || ""}! Seu agendamento de ${ag.servicos?.nome || "serviço"} no dia ${dataFormatada} às ${hora} foi confirmado. Te esperamos! `;
+
+    window.open(`https://wa.me/55${telefoneLimpo}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+  };
+
   if (ag.status === "aguardando_pagamento" || ag.status === "aguardando_confirmacao") {
-    acoes.appendChild(botao("Confirmar", "confirmado", "btn-mini-primary"));
+    acoes.appendChild(botao("Confirmar", "confirmado", "btn-mini-primary", enviarConfirmacaoWhatsapp));
     acoes.appendChild(botao("Cancelar", "cancelado", "btn-mini-perigo"));
   } else if (ag.status === "confirmado") {
     acoes.appendChild(botao("Marcar concluído", "concluido", "btn-mini-primary"));
@@ -1072,6 +1133,7 @@ async function mudarStatusAgendamento(id, novoStatus) {
       body: JSON.stringify({ status: novoStatus }),
     });
     carregarAgendamentos();
+    carregarDashboard();
   } catch (err) {
     alert(err.message);
   }
@@ -1121,7 +1183,13 @@ async function carregarServicos() {
         item.innerHTML = `
           <div class="item-card-texto">
             <strong>${escaparHtml(s.nome)}</strong>
-            <span>${s.duracao_minutos} min · ${formatarMoeda(s.preco)}</span>
+            <span>${s.duracao_minutos} min · ${formatarMoeda(s.preco)}${
+              s.cobra_sinal === false
+                ? " · sem sinal"
+                : s.tipo_cobranca_sinal === "percentual"
+                  ? ` · sinal ${Number(s.percentual_sinal || 0)}%`
+                  : ` · sinal ${formatarMoeda(s.valor_sinal_fixo || 0)}`
+            }</span>
           </div>
           <div class="item-card-acoes">
             <button class="btn-mini" data-acao="editar">Editar</button>
@@ -1145,6 +1213,17 @@ function editarServico(s) {
   el("servicoNome").value = s.nome;
   el("servicoDuracao").value = s.duracao_minutos;
   el("servicoPreco").value = s.preco;
+
+  el("servicoCobraSinal").checked = s.cobra_sinal !== false;
+  const tipoAtual = s.tipo_cobranca_sinal || "fixo";
+  const radioTipo = document.querySelector(
+    `input[name="servicoTipoCobranca"][value="${tipoAtual}"]`
+  );
+  if (radioTipo) radioTipo.checked = true;
+  el("servicoValorSinalFixo").value = s.valor_sinal_fixo ?? "";
+  el("servicoPercentualSinal").value = s.percentual_sinal ?? "";
+  atualizarVisibilidadeSinal();
+
   el("btnSalvarServico").textContent = "Salvar edição";
   el("btnCancelarEdicaoServico").hidden = false;
 }
@@ -1152,10 +1231,30 @@ function editarServico(s) {
 function cancelarEdicaoServico() {
   el("servicoEditandoId").value = "";
   el("formServico").reset();
+  atualizarVisibilidadeSinal();
   el("btnSalvarServico").textContent = "Adicionar serviço";
   el("btnCancelarEdicaoServico").hidden = true;
 }
 el("btnCancelarEdicaoServico").addEventListener("click", cancelarEdicaoServico);
+
+// ---- SINAL: mostra/esconde os campos conforme "cobra sinal?" e o tipo escolhido ----
+function atualizarVisibilidadeSinal() {
+  const cobra = el("servicoCobraSinal").checked;
+  el("blocoConfigSinal").hidden = !cobra;
+
+  const tipo =
+    document.querySelector('input[name="servicoTipoCobranca"]:checked')?.value ||
+    "fixo";
+  el("blocoValorFixo").hidden = !cobra || tipo !== "fixo";
+  el("blocoPercentual").hidden = !cobra || tipo !== "percentual";
+}
+
+el("servicoCobraSinal").addEventListener("change", atualizarVisibilidadeSinal);
+document
+  .querySelectorAll('input[name="servicoTipoCobranca"]')
+  .forEach((radio) => radio.addEventListener("change", atualizarVisibilidadeSinal));
+
+atualizarVisibilidadeSinal();
 
 async function alternarAtivoServico(s) {
   try {
@@ -1186,10 +1285,38 @@ el("formServico").addEventListener("submit", async (e) => {
   btn.disabled = true;
   el("servicoErro").hidden = true;
 
+  const cobraSinal = el("servicoCobraSinal").checked;
+  const tipoCobranca =
+    document.querySelector('input[name="servicoTipoCobranca"]:checked')?.value ||
+    "fixo";
+
+  if (cobraSinal && tipoCobranca === "fixo" && !el("servicoValorSinalFixo").value) {
+    el("servicoErro").textContent = "Informe o valor fixo do sinal.";
+    el("servicoErro").hidden = false;
+    btn.disabled = false;
+    return;
+  }
+  if (cobraSinal && tipoCobranca === "percentual" && !el("servicoPercentualSinal").value) {
+    el("servicoErro").textContent = "Informe o percentual do sinal.";
+    el("servicoErro").hidden = false;
+    btn.disabled = false;
+    return;
+  }
+
   const corpo = {
     nome: el("servicoNome").value.trim(),
     duracao_minutos: Number(el("servicoDuracao").value),
     preco: Number(el("servicoPreco").value),
+    cobra_sinal: cobraSinal,
+    tipo_cobranca_sinal: cobraSinal ? tipoCobranca : null,
+    valor_sinal_fixo:
+      cobraSinal && tipoCobranca === "fixo"
+        ? Number(el("servicoValorSinalFixo").value)
+        : null,
+    percentual_sinal:
+      cobraSinal && tipoCobranca === "percentual"
+        ? Number(el("servicoPercentualSinal").value)
+        : null,
   };
 
   try {

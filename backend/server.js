@@ -45,7 +45,7 @@ app.use("/admin/api/portfolio", portfolioRoutes);
 app.use("/admin/api/push", pushRoutes);
 
 app.get("/api", (req, res) => {
-    res.json({ status: "Salonnia App online 🚀" });
+    res.json({ status: "Salonia App online 🚀" });
 });
 
 // rotas do salão por slug

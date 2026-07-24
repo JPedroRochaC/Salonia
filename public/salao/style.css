@@ -25,6 +25,8 @@
   --brown-soft: #737175;     /* cinza de apoio — texto secundário */
   --accent: #641546;         /* roxo Iara — CTAs, links, seleção */
   --accent-hover: #7d1c58;   /* roxo Iara, hover */
+  --accent-soft: rgba(100, 21, 70, 0.08);
+  --accent-border: rgba(100, 21, 70, 0.22);
   --border-soft: rgba(46, 42, 44, 0.1);
   --border-strong: rgba(46, 42, 44, 0.18);
   --danger: #d10505;         /* vermelho só pra erro/aviso — não faz parte da marca */
@@ -512,16 +514,19 @@ h3 {
   margin-top: 10px;
 }
 
-/* ===== PIX / SINAL ===== */
+/* ===== PIX / SINAL (caixa dentro do passo de confirmação, logo abaixo
+   do aviso-sinal — sem shadow própria, pra ler como continuação do
+   aviso e não como mais um card solto igual o resumo-card) ===== */
 .pix-card {
   background: var(--cream);
-  border-radius: var(--radius-md);
-  padding: 18px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  box-shadow: var(--shadow-sm);
-  margin: 18px 0;
+  gap: 12px;
+  margin-top: 10px;
 }
 .pix-linha {
   display: flex;
@@ -561,6 +566,32 @@ h3 {
   cursor: pointer;
   flex-shrink: 0;
 }
+.pix-titular {
+  font-size: 0.78rem;
+  color: var(--brown-soft);
+  text-align: right;
+  margin-top: -4px;
+}
+
+/* Aviso pra enviar o comprovante pelo WhatsApp, logo abaixo da caixa
+   do Pix. Discreto de propósito — é um lembrete, não outro alerta. */
+.aviso-comprovante {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--brown-soft);
+  line-height: 1.45;
+  margin-top: 10px;
+  padding: 0 2px;
+}
+.aviso-comprovante svg {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--accent);
+}
 
 .comprovante-titulo {
   margin-bottom: 10px;
@@ -584,10 +615,6 @@ h3 {
   border-style: solid;
   border-color: var(--accent);
   color: var(--brown);
-}
-
-#btnPularComprovante {
-  margin-top: 12px;
 }
 
 /* ===== PÁGINA DE PORTFÓLIO ===== */
@@ -950,6 +977,9 @@ select {
     width: 100%;
   }
   .pix-chave-linha strong {
+    text-align: left;
+  }
+  .pix-titular {
     text-align: left;
   }
 
