@@ -75,4 +75,40 @@ router.put("/:id/status", requireAuth, async (req, res) => {
   res.json({ ok: true, agendamento: data });
 });
 
+// Entrega uma URL temporária da foto somente para a dona do salão daquele
+// agendamento. Registros antigos com URL pública continuam acessíveis até
+// serem migrados, sem impedir a transição para o bucket privado.
+router.get("/:id/referencia", requireAuth, async (req, res) => {
+  const { data: agendamento, error } = await supabase
+    .from("agendamentos")
+    .select("foto_referencia_url")
+    .eq("id", req.params.id)
+    .eq("salao_id", req.salao.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao buscar foto de referência:", error);
+    return res.status(500).json({ erro: "Erro ao buscar a foto de referência." });
+  }
+  if (!agendamento?.foto_referencia_url) {
+    return res.status(404).json({ erro: "Foto de referência não encontrada." });
+  }
+
+  const referencia = agendamento.foto_referencia_url;
+  if (/^https?:\/\//i.test(referencia)) {
+    return res.redirect(referencia);
+  }
+
+  const { data: assinada, error: erroAssinada } = await supabase.storage
+    .from("referencias")
+    .createSignedUrl(referencia, 60 * 5);
+
+  if (erroAssinada || !assinada?.signedUrl) {
+    console.error("Erro ao assinar foto de referência:", erroAssinada);
+    return res.status(500).json({ erro: "Erro ao abrir a foto de referência." });
+  }
+
+  res.redirect(assinada.signedUrl);
+});
+
 export default router;

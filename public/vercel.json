@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/agendamento", "destination": "https://salonia.onrender.com/agendamento" },
+    { "source": "/agendamento/:path*", "destination": "https://salonia.onrender.com/agendamento/:path*" },
     { "source": "/admin/api/:path*", "destination": "https://salonia.onrender.com/admin/api/:path*" },
     { "source": "/admin/auth/:path*", "destination": "https://salonia.onrender.com/admin/auth/:path*" },
     { "source": "/admin", "destination": "/admin/index.html" },

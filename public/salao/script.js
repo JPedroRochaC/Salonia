@@ -759,42 +759,27 @@ function esconderErroReferencia() {
   el("erroReferencia").hidden = true;
 }
 
-// Sobe a foto (se o cliente escolheu uma) direto pro Supabase Storage e
-// vincula ao agendamento já criado. Não trava o fluxo principal: se der
-// erro aqui, o agendamento em si já foi confirmado normalmente.
+// Envia a foto (se a cliente escolheu uma) pela API. Não trava o fluxo
+// principal: se der erro aqui, o agendamento em si já foi confirmado normalmente.
 async function enviarFotoReferenciaSeHouver(agendamentoId) {
   const arquivo = el("inputReferencia").files[0];
   if (!arquivo) return;
 
   try {
-    const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase();
-    const caminho = `${slug}/${agendamentoId}-${Date.now()}.${extensao}`;
+    const dados = new FormData();
+    dados.append("arquivo", arquivo);
+    dados.append("telefone", estado.telefoneCliente.replace(/\D/g, ""));
 
-    const { error: erroUpload } = await sb.storage
-      .from("referencias")
-      .upload(caminho, arquivo);
+    const resposta = await fetch(`/agendamento/${agendamentoId}/referencia`, {
+      method: "POST",
+      body: dados,
+    });
+    const resultado = await resposta.json();
 
-    if (erroUpload) {
-      console.error("Erro ao enviar foto de referência:", erroUpload);
+    if (!resposta.ok || !resultado.ok) {
+      console.error("Erro ao enviar foto de referência:", resultado);
       mostrarErroReferencia(
         "Não deu pra enviar a foto, mas seu agendamento já foi confirmado. Pode mandar a foto pelo WhatsApp."
-      );
-      return;
-    }
-
-    const { data: urlData } = sb.storage
-      .from("referencias")
-      .getPublicUrl(caminho);
-
-    const { error: erroRpc } = await sb.rpc("anexar_foto_referencia", {
-      p_agendamento_id: agendamentoId,
-      p_foto_referencia_url: urlData.publicUrl,
-    });
-
-    if (erroRpc) {
-      console.error("Erro ao vincular foto de referência:", erroRpc);
-      mostrarErroReferencia(
-        "A foto foi enviada, mas houve um erro ao vincular. Avise o salão pelo WhatsApp."
       );
     }
   } catch (err) {
@@ -828,11 +813,6 @@ async function confirmarAgendamento() {
         profissional_id: profissional.id,
         servico_id: servico.id,
         data_hora: horario.toISOString(),
-        duracao_minutos: servico.duracao_minutos,
-        valor: servico.preco,
-        status: servicoCobraSinal(servico)
-          ? "aguardando_pagamento"
-          : "aguardando_confirmacao",
       }),
     });
 

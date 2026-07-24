@@ -336,7 +336,7 @@ async function carregarDashboard() {
           <div class="agendamento-lado">
             ${
               ag.foto_referencia_url
-                ? `<button type="button" class="btn-mini btn-mini-referencia" data-foto="${ag.foto_referencia_url}">
+                ? `<button type="button" class="btn-mini btn-mini-referencia" data-foto="/admin/api/agendamentos/${ag.id}/referencia">
      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
        <circle cx="12" cy="13" r="4"/>
@@ -1067,8 +1067,8 @@ function abrirDetalheAgendamento(ag) {
     ${
       ag.foto_referencia_url
         ? `<span class="agendamento-foto-referencia" style="display:block; margin-bottom:10px;">
-             <a href="${ag.foto_referencia_url}" target="_blank" rel="noopener">
-               <img src="${ag.foto_referencia_url}" alt="Foto de referência enviada pelo cliente" style="max-width:120px; max-height:120px; border-radius:8px; display:block; margin-bottom:4px;" />
+             <a href="/admin/api/agendamentos/${ag.id}/referencia" target="_blank" rel="noopener">
+               <img src="/admin/api/agendamentos/${ag.id}/referencia" alt="Foto de referência enviada pelo cliente" style="max-width:120px; max-height:120px; border-radius:8px; display:block; margin-bottom:4px;" />
                Ver foto de referência
              </a>
            </span>`
