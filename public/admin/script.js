@@ -450,6 +450,9 @@ document.querySelectorAll("[data-dashboard-atalho]").forEach((botao) => {
     const atalho = botao.dataset.dashboardAtalho;
     if (atalho === "clientes" || atalho === "profissionais") {
       document.querySelector(`[data-aba="${atalho === "profissionais" ? "servicos" : atalho}"]`)?.click();
+      if (atalho === "profissionais") {
+        setTimeout(() => document.querySelector('[data-sub-aba="listaProfissionaisSub"]')?.click(), 0);
+      }
       return;
     }
     document.querySelector('[data-aba="agendamentos"]')?.click();
@@ -2669,6 +2672,7 @@ async function salvarHorariosProfissional(profissional) {
       method: "PUT",
       body: JSON.stringify({ horarios_disponiveis: profissional.horarios_disponiveis }),
     });
+    profissional.modo_agenda = "semanal";
   } catch (err) {
     alert(err.message);
   }

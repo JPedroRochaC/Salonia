@@ -207,7 +207,10 @@ router.put("/:id/horarios", requireAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from("profissionais")
-    .update({ horarios_disponiveis: limpo })
+    // Salvar períodos semanais também define o modo dessa profissional como
+    // semanal. Isso evita ficar com dados de horário padrão e modo flexível
+    // ao mesmo tempo depois de uma mudança de configuração.
+    .update({ horarios_disponiveis: limpo, modo_agenda: "semanal" })
     .eq("id", req.params.id)
     .eq("salao_id", req.salao.id)
     .select()

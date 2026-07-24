@@ -86,11 +86,22 @@ router.get("/", requireAuth, async (req, res) => {
     .map((cliente) => cliente.nome)
     .slice(0, 4);
   const alertas = [];
-  (profissionais || []).filter((p) => p.ativo).forEach((profissional) => {
+  const profissionaisAtivosLista = (profissionais || []).filter((p) => p.ativo);
+  const idsFlexiveis = profissionaisAtivosLista.filter((p) => p.modo_agenda === "flexivel").map((p) => p.id);
+  const limiteAgenda = new Date(hoje);
+  limiteAgenda.setDate(limiteAgenda.getDate() + 6);
+  const { data: horariosFlexiveis } = idsFlexiveis.length
+    ? await supabase.from("disponibilidades_profissional").select("profissional_id").in("profissional_id", idsFlexiveis).gte("data", dataNoFuso(hoje)).lte("data", dataNoFuso(limiteAgenda))
+    : { data: [] };
+  const profissionaisFlexiveisComHorario = new Set((horariosFlexiveis || []).map((item) => item.profissional_id));
+
+  profissionaisAtivosLista.forEach((profissional) => {
     const horarios = typeof profissional.horarios_disponiveis === "string"
       ? (() => { try { return JSON.parse(profissional.horarios_disponiveis); } catch { return {}; } })()
       : (profissional.horarios_disponiveis || {});
-    if (profissional.modo_agenda !== "flexivel" && !Object.values(horarios).some((listaDia) => Array.isArray(listaDia) && listaDia.length)) {
+    if (profissional.modo_agenda === "flexivel" && !profissionaisFlexiveisComHorario.has(profissional.id)) {
+      alertas.push({ tipo: "agenda", texto: `${profissional.nome} não tem horários flexíveis publicados para os próximos 7 dias.` });
+    } else if (profissional.modo_agenda !== "flexivel" && !Object.values(horarios).some((listaDia) => Array.isArray(listaDia) && listaDia.length)) {
       alertas.push({ tipo: "agenda", texto: `${profissional.nome} ainda não tem horário padrão configurado.` });
     }
   });
