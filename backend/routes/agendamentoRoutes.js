@@ -116,11 +116,10 @@ router.get("/disponibilidade", async (req, res) => {
         .gte("data_hora", new Date(inicioDia.getTime() - 24 * 60 * 60 * 1000).toISOString()),
       supabase
         .from("bloqueios_agenda")
-        .select("inicio, fim")
+        .select("profissional_id, inicio, fim")
         .eq("salao_id", profissional.salao_id)
         .lt("inicio", fimDia.toISOString())
-        .gt("fim", inicioDia.toISOString())
-        .or(`profissional_id.is.null,profissional_id.eq.${profissional.id}`),
+        .gt("fim", inicioDia.toISOString()),
     ]);
 
     if (erroAgendamentos || erroBloqueios) {
@@ -128,7 +127,13 @@ router.get("/disponibilidade", async (req, res) => {
       return res.status(500).json({ erro: "Erro ao consultar disponibilidade." });
     }
 
-    res.json({ ok: true, agendamentos: agendamentos || [], bloqueios: bloqueios || [] });
+    // Filtrar no servidor evita depender da sintaxe de OR do PostgREST para
+    // distinguir o bloqueio de todo o salão do bloqueio de uma profissional.
+    const bloqueiosAplicaveis = (bloqueios || []).filter(
+      (bloqueio) => !bloqueio.profissional_id || bloqueio.profissional_id === profissional.id,
+    );
+
+    res.json({ ok: true, agendamentos: agendamentos || [], bloqueios: bloqueiosAplicaveis });
   } catch (erro) {
     console.error("Erro inesperado na disponibilidade:", erro);
     res.status(500).json({ erro: "Erro interno ao consultar disponibilidade." });

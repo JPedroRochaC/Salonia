@@ -459,6 +459,19 @@ h3 {
   font-family: inherit;
 }
 
+.data-atendimento-label {
+  display: block;
+  margin: 2px 0 7px;
+  color: var(--brown-soft);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.input-data {
+  min-height: 58px;
+  margin-bottom: 0;
+  font-weight: 700;
+}
+
 .slot-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

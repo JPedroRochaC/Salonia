@@ -1,5 +1,5 @@
 import express from "express";
-import { supabase } from "../config/supabase.js";
+import { supabase, supabaseAuth } from "../config/supabase.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router = express.Router();
@@ -13,7 +13,7 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ erro: "Informe email e senha." });
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabaseAuth.auth.signInWithPassword({
     email,
     password: senha,
   });

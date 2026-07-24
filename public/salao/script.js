@@ -400,7 +400,9 @@ async function iniciarWizard() {
   );
 
   el("inputData").min = new Date().toISOString().slice(0, 10);
-  el("inputData").addEventListener("change", carregarHorarios);
+  el("inputData").addEventListener("change", () => {
+    carregarHorarios();
+  });
   el("btnContinuarHorario").addEventListener("click", () => irParaPasso(3));
   el("btnContinuarDados").addEventListener("click", validarDados);
   el("btnConfirmar").addEventListener("click", confirmarAgendamento);
@@ -619,8 +621,9 @@ async function carregarHorarios() {
   const livres = [...horariosDoDia]
     .filter((horaTexto) => {
       const [hora, minuto] = horaTexto.split(":").map(Number);
-      const inicioCandidato = new Date(`${dataValor}T00:00:00`);
-      inicioCandidato.setHours(hora, minuto, 0, 0);
+      // A agenda é sempre do salão, no fuso de São Paulo. Não usamos o fuso
+      // do celular da cliente, pois ele poderia mostrar um horário bloqueado.
+      const inicioCandidato = new Date(`${dataValor}T${horaTexto}:00-03:00`);
       const fimCandidato = new Date(inicioCandidato.getTime() + duracaoServico * 60000);
       return !intervalosIndisponiveis.some(
         (intervalo) => inicioCandidato < intervalo.fim && fimCandidato > intervalo.inicio,
@@ -638,10 +641,7 @@ async function carregarHorarios() {
     btn.className = "slot-btn";
     btn.textContent = horaTexto;
     btn.addEventListener("click", () => {
-      const [h, m] = horaTexto.split(":").map(Number);
-      const dataHorario = new Date(`${dataValor}T00:00:00`);
-      dataHorario.setHours(h, m, 0, 0);
-      estado.horario = dataHorario;
+      estado.horario = new Date(`${dataValor}T${horaTexto}:00-03:00`);
       document
         .querySelectorAll(".slot-btn")
         .forEach((b) => b.classList.remove("selected"));
